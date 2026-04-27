@@ -13,8 +13,8 @@ CREATE TABLE users (
 CREATE TABLE subscriptions (
     id          BIGSERIAL PRIMARY KEY,
     user_id     BIGINT REFERENCES users(id) ON DELETE CASCADE,
-    paket       VARCHAR(20) NOT NULL DEFAULT 'GRATIS',
-    status      VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    paket       VARCHAR(20) NOT NULL DEFAULT 'GRATIS' CHECK (paket IN ('GRATIS', 'PETANI', 'PRO')),
+    status      VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE', 'EXPIRED')),
     expired_at  TIMESTAMP,
     created_at  TIMESTAMP DEFAULT NOW()
 );
