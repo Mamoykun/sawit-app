@@ -28,13 +28,13 @@ spring:
       port: ${REDIS_PORT:6379}
 
 jwt:
-  secret: ${JWT_SECRET:sawitku-dev-secret-key-minimum-256-bits-ganti-di-production-ya}
+  secret: ${JWT_SECRET}
   expiration: 86400000
 
 claude:
   api-key: ${CLAUDE_API_KEY:}
-  model: claude-sonnet-4-20250514
-  max-tokens: 1000
+  model: ${CLAUDE_MODEL:claude-sonnet-4-20250514}
+  max-tokens: 2048
 
 management:
   endpoints:

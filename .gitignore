@@ -1,0 +1,9 @@
+.env
+.env.local
+*.env
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+!backend/mvnw
+!backend/mvnw.cmd
