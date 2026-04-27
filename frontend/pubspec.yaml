@@ -1,0 +1,36 @@
+name: sawitku
+description: Platform Manajemen Kebun Sawit
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # HTTP client
+  dio: ^5.4.0
+  # Local storage
+  shared_preferences: ^2.2.2
+  # State management
+  provider: ^6.1.1
+  # Charts
+  fl_chart: ^0.66.2
+  # Fonts
+  google_fonts: ^6.1.0
+  # JSON
+  json_annotation: ^4.8.1
+  # Date formatting
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: ^2.4.7
+  json_serializable: ^6.7.1
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
