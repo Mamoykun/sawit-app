@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import 'main_screen.dart';
+import '../services/api_service.dart';
+import '../widgets/sawit_logo.dart';
+import '../widgets/organic_background.dart';
+import 'login_screen.dart';
+import 'lahan_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -28,19 +32,32 @@ class _SplashScreenState extends State<SplashScreen>
     );
     _controller.forward();
 
-    Future.delayed(const Duration(milliseconds: 2400), () {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => const MainScreen(),
-            transitionsBuilder: (_, anim, __, child) =>
-                FadeTransition(opacity: anim, child: child),
-            transitionDuration: const Duration(milliseconds: 500),
-          ),
-        );
+    Future.delayed(const Duration(milliseconds: 2000), _navigate);
+  }
+
+  Future<void> _navigate() async {
+    if (!mounted) return;
+    bool isLoggedIn = false;
+    try {
+      final hasToken = await ApiService().isLoggedIn();
+      if (hasToken) {
+        await ApiService().getProfile();
+        isLoggedIn = true;
       }
-    });
+    } catch (_) {
+      isLoggedIn = false;
+    }
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) =>
+            isLoggedIn ? const LahanScreen() : const LoginScreen(),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+        transitionDuration: const Duration(milliseconds: 400),
+      ),
+    );
   }
 
   @override
@@ -59,26 +76,36 @@ class _SplashScreenState extends State<SplashScreen>
           colors: [AppColors.primary, AppColors.primary2, AppColors.primary3],
         ),
       ),
-      child: Center(
-        child: FadeTransition(
-          opacity: _fadeAnim,
-          child: ScaleTransition(
-            scale: _scaleAnim,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('🌴', style: TextStyle(fontSize: 72)),
-                const SizedBox(height: 20),
-                Text(
-                  'SawitKu',
-                  style: AppTextStyles.display(42, color: Colors.white),
+      child: Stack(
+        children: [
+          const OrganicBackground(
+            blobColor: Color(0xFF74C69D),
+            particleColor: AppColors.goldLight,
+            blobOpacity: 0.15,
+            particleOpacity: 0.35,
+            particleCount: 32,
+          ),
+          Center(
+            child: FadeTransition(
+              opacity: _fadeAnim,
+              child: ScaleTransition(
+                scale: _scaleAnim,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                const SawitLogo(
+                  size: 96,
+                  primaryColor: Color(0xFF14532D),
+                  withGlow: true,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: Spacing.xxl),
+                Text('SawitKu',
+                    style: AppTextStyles.hero(48, color: Colors.white)),
+                const SizedBox(height: Spacing.sm),
                 Text(
                   'PLATFORM MANAJEMEN KEBUN',
-                  style: AppTextStyles.body(12,
-                      color: const Color(0xFF74C69D),
-                      weight: FontWeight.w600),
+                  style: AppTextStyles.label(
+                      color: const Color(0xFF74C69D)),
                 ),
                 const SizedBox(height: 48),
                 const SizedBox(
@@ -89,10 +116,12 @@ class _SplashScreenState extends State<SplashScreen>
                     strokeWidth: 2,
                   ),
                 ),
-              ],
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       ),
     ),
   );

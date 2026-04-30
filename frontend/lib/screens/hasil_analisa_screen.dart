@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/panen_model.dart';
+import '../models/lahan_model.dart';
 import '../widgets/common_widgets.dart';
 
 class HasilAnalisaScreen extends StatelessWidget {
   final HasilAnalisa? hasil;
+  final LahanModel? lahan;
   final VoidCallback onGoToInput;
   final VoidCallback onGoToRiwayat;
+  final VoidCallback? onRefresh;
 
   const HasilAnalisaScreen({
     super.key,
     required this.hasil,
+    this.lahan,
     required this.onGoToInput,
     required this.onGoToRiwayat,
+    this.onRefresh,
   });
 
   @override
@@ -22,6 +27,10 @@ class HasilAnalisaScreen extends StatelessWidget {
     final p = hasil!.panen;
     final statusCfg = _statusConfig(p.status);
 
+    final luasHa = lahan?.luasHa ?? p.luasHa;
+    final usiaTahun = lahan?.usiaPohon ?? p.usiaTahun;
+    final namaLahan = lahan?.namaLahan;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
       child: Column(
@@ -29,7 +38,9 @@ class HasilAnalisaScreen extends StatelessWidget {
         children: [
           SectionTitle(
             title: 'Hasil Analisa',
-            subtitle: '${p.luasHa} ha · Usia ${p.usiaTahun} tahun · ${p.bulan}',
+            subtitle: '${namaLahan != null ? '$namaLahan · ' : ''}'
+                '${luasHa.toStringAsFixed(1)} ha · '
+                'Usia $usiaTahun tahun · ${p.bulan}',
           ),
 
           // ─── Status Banner ───────────────────────────────────────────────
@@ -143,15 +154,54 @@ class HasilAnalisaScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.gold,
+                    color: p.analisa?.penyebab.isNotEmpty == true
+                        ? AppColors.gold
+                        : AppColors.textLight,
                     borderRadius: BorderRadius.circular(99),
                   ),
-                  child: Text('AI',
-                      style: AppTextStyles.body(10, color: Colors.white,
-                          weight: FontWeight.w700)),
+                  child: Text(
+                    p.analisa?.penyebab.isNotEmpty == true ? 'AI' : 'Lokal',
+                    style: AppTextStyles.body(10, color: Colors.white,
+                        weight: FontWeight.w700)),
                 ),
               ],
             ),
+            if (p.analisa?.penyebab.isNotEmpty != true) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.goldTint,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.goldLight.withOpacity(0.4)),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 10, height: 10,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.gold)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text('Analisa AI sedang diproses di background...',
+                          style: AppTextStyles.body(12, color: AppColors.gold)),
+                    ),
+                    if (onRefresh != null)
+                      GestureDetector(
+                        onTap: onRefresh,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.gold,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text('Refresh',
+                              style: AppTextStyles.body(11,
+                                  color: Colors.white, weight: FontWeight.w700)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             ...hasil!.penyebab.map((c) => _PenyebabCard(penyebab: c)),
           ],
@@ -165,18 +215,36 @@ class HasilAnalisaScreen extends StatelessWidget {
                 border: Border.all(color: AppColors.primary3.withOpacity(0.4)),
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: Column(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('🎉', style: TextStyle(fontSize: 24)),
-                  const SizedBox(height: 8),
-                  Text('Panen Sesuai Target!',
-                      style: AppTextStyles.display(16, color: AppColors.primary)),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Pertahankan jadwal pemupukan rutin dan pastikan panen dilakukan '
-                    'tepat waktu agar kualitas TBS tetap optimal dan FFA rendah.',
-                    style: AppTextStyles.body(13, color: AppColors.textMid),
+                  Container(
+                    width: 44, height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.check_circle_rounded,
+                        color: Colors.white, size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Panen Sesuai Target!',
+                            style: AppTextStyles.display(16,
+                                color: AppColors.primary)),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Pertahankan jadwal pemupukan rutin dan pastikan panen '
+                          'dilakukan tepat waktu agar kualitas TBS tetap optimal '
+                          'dan FFA rendah.',
+                          style: AppTextStyles.body(13,
+                              color: AppColors.textMid),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -188,34 +256,18 @@ class HasilAnalisaScreen extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
-                  onPressed: onGoToRiwayat,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary, width: 1.5),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: Text('📊 Lihat Riwayat',
-                      style: AppTextStyles.body(13, color: AppColors.primary,
-                          weight: FontWeight.w700)),
+                child: SecondaryButton(
+                  label: 'Riwayat',
+                  icon: Icons.bar_chart_rounded,
+                  onTap: onGoToRiwayat,
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: ElevatedButton(
-                  onPressed: onGoToInput,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                    elevation: 0,
-                  ),
-                  child: Text('+ Input Lagi',
-                      style: AppTextStyles.body(13, color: Colors.white,
-                          weight: FontWeight.w700)),
+                child: PrimaryButton(
+                  label: 'Input Lagi',
+                  icon: Icons.add_rounded,
+                  onTap: onGoToInput,
                 ),
               ),
             ],
@@ -228,13 +280,13 @@ class HasilAnalisaScreen extends StatelessWidget {
   ({Color color, Color bg, String label}) _statusConfig(String status) {
     switch (status) {
       case 'normal':
-        return (color: AppColors.primary, bg: AppColors.primaryTint, label: '✅  Panen Normal');
+        return (color: AppColors.primary, bg: AppColors.primaryTint, label: 'Panen Normal');
       case 'warn':
         return (color: AppColors.warn, bg: AppColors.warnTint,
-            label: '⚠️  Kurang ${hasil!.panen.persenKurang.toStringAsFixed(0)}% dari Target');
+            label: 'Kurang ${hasil!.panen.persenKurang.toStringAsFixed(0)}% dari Target');
       default:
         return (color: AppColors.danger, bg: AppColors.dangerTint,
-            label: '🚨  Defisit ${hasil!.panen.persenKurang.toStringAsFixed(0)}% — Perlu Tindakan');
+            label: 'Defisit ${hasil!.panen.persenKurang.toStringAsFixed(0)}% — Perlu Tindakan');
     }
   }
 }
@@ -317,9 +369,9 @@ class _PenyebabCard extends StatelessWidget {
       color: AppColors.surface,
       border: Border(
         left: BorderSide(color: _borderColor, width: 4),
-        top: BorderSide(color: AppColors.border),
-        right: BorderSide(color: AppColors.border),
-        bottom: BorderSide(color: AppColors.border),
+        top: const BorderSide(color: AppColors.border),
+        right: const BorderSide(color: AppColors.border),
+        bottom: const BorderSide(color: AppColors.border),
       ),
       borderRadius: BorderRadius.circular(16),
     ),
@@ -329,25 +381,44 @@ class _PenyebabCard extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text(penyebab.icon, style: const TextStyle(fontSize: 22)),
+            Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.primary3.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(penyebabIconData(penyebab.iconKey),
+                  color: AppColors.primary3, size: 18),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(penyebab.title,
-                  style: AppTextStyles.body(14, color: AppColors.textMid,
+                  style: AppTextStyles.body(15, color: AppColors.textMid,
                       weight: FontWeight.w700)),
             ),
             StatusBadge(label: penyebab.severity, severity: penyebab.severity),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: AppColors.surfaceAlt,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(penyebab.detail,
-              style: AppTextStyles.body(13, color: AppColors.textMid)),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.tips_and_updates_rounded,
+                  size: 16, color: AppColors.primary3),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(penyebab.detail,
+                    style: AppTextStyles.body(14,
+                        color: AppColors.textMid)),
+              ),
+            ],
+          ),
         ),
       ],
     ),

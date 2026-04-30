@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/panen_model.dart';
+import '../models/lahan_model.dart';
+import '../services/api_service.dart';
+import '../services/analisa_service.dart';
 import 'beranda_screen.dart';
-import 'input_panen_screen.dart';
 import 'hasil_analisa_screen.dart';
-import 'riwayat_screen.dart';
+import 'lahan_screen.dart';
+import 'profile_screen.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final LahanModel lahan;
+  final String userPaket;
+
+  const MainScreen({
+    super.key,
+    required this.lahan,
+    this.userPaket = 'GRATIS',
+  });
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -17,48 +27,116 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   HasilAnalisa? _lastAnalisa;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadLastAnalisa();
+  }
+
+  Future<void> _loadLastAnalisa() async {
+    try {
+      final list = await ApiService().getRiwayat(widget.lahan.id, limit: 1);
+      if (list.isNotEmpty && mounted) {
+        final last = list.first;
+        final penyebab = last.analisa?.penyebab.isNotEmpty == true
+            ? last.analisa!.penyebab
+            : AnalisaService.getPenyebab(last.persenKurang);
+        setState(() {
+          _lastAnalisa = HasilAnalisa(panen: last, penyebab: penyebab);
+        });
+      }
+    } catch (_) {}
+  }
+
   void _onAnalisaDone(HasilAnalisa hasil) {
     setState(() {
       _lastAnalisa = hasil;
-      _currentIndex = 2; // pindah ke tab Analisa
+      _currentIndex = 1;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final lahan = widget.lahan;
     final screens = [
-      BerandaScreen(onGoToInput: () => setState(() => _currentIndex = 1)),
-      InputPanenScreen(onAnalisaDone: _onAnalisaDone),
+      BerandaScreen(
+        lahan: lahan,
+        onAnalisaDone: _onAnalisaDone,
+        onRefreshAnalisa: _loadLastAnalisa,
+        userPaket: widget.userPaket,
+      ),
       HasilAnalisaScreen(
         hasil: _lastAnalisa,
-        onGoToInput: () => setState(() => _currentIndex = 1),
-        onGoToRiwayat: () => setState(() => _currentIndex = 3),
+        lahan: widget.lahan,
+        onGoToInput: () => setState(() => _currentIndex = 0),
+        onGoToRiwayat: () => setState(() => _currentIndex = 0),
+        onRefresh: _loadLastAnalisa,
       ),
-      RiwayatScreen(lastAnalisa: _lastAnalisa),
+      const ProfileScreen(embedded: true),
     ];
+
+    final titles = ['SawitKu', 'Hasil Analisa', 'Profil Saya'];
 
     return Scaffold(
       appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.primary2],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('SawitKu', style: AppTextStyles.display(18, color: Colors.white)),
-            Text(
-              'PLATFORM MANAJEMEN KEBUN',
-              style: AppTextStyles.body(9,
-                  color: const Color(0xFF74C69D), weight: FontWeight.w600),
-            ),
+            Text(titles[_currentIndex],
+                style: AppTextStyles.display(18, color: Colors.white)),
+            if (_currentIndex == 0)
+              Text(
+                lahan.namaLahan.toUpperCase(),
+                style: AppTextStyles.body(9,
+                    color: const Color(0xFF74C69D),
+                    weight: FontWeight.w600),
+              ),
           ],
         ),
         actions: [
+          if (_currentIndex == 0)
+            GestureDetector(
+              onTap: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const LahanScreen()),
+              ),
+              child: Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.swap_horiz_rounded,
+                        color: Colors.white70, size: 16),
+                    const SizedBox(width: 4),
+                    Text('Kebun',
+                        style: AppTextStyles.body(11, color: Colors.white70)),
+                  ],
+                ),
+              ),
+            ),
           Container(
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: AppColors.gold,
+              color: widget.userPaket == 'GRATIS'
+                  ? Colors.white.withOpacity(0.15)
+                  : AppColors.gold,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text('PETANI',
+            child: Text(widget.userPaket,
                 style: AppTextStyles.body(11,
                     color: Colors.white, weight: FontWeight.w700)),
           ),
@@ -89,9 +167,11 @@ class _BottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = [
       const _NavItem(icon: Icons.grid_view_rounded, label: 'Beranda'),
-      const _NavItem(icon: Icons.add_circle_outline_rounded, label: 'Input'),
-      _NavItem(icon: Icons.analytics_outlined, label: 'Analisa', badge: !hasAnalisa),
-      const _NavItem(icon: Icons.bar_chart_rounded, label: 'Riwayat'),
+      _NavItem(
+          icon: Icons.analytics_outlined,
+          label: 'Analisa',
+          badge: !hasAnalisa),
+      const _NavItem(icon: Icons.person_outline_rounded, label: 'Profil'),
     ];
 
     return Container(
@@ -108,7 +188,7 @@ class _BottomNav extends StatelessWidget {
       ),
       child: SafeArea(
         child: SizedBox(
-          height: 64,
+          height: 70,
           child: Row(
             children: items.asMap().entries.map((e) {
               final i = e.key;
@@ -118,28 +198,60 @@ class _BottomNav extends StatelessWidget {
                 child: GestureDetector(
                   onTap: () => onTap(i),
                   behavior: HitTestBehavior.opaque,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Stack(
+                    alignment: Alignment.topCenter,
                     children: [
-                      Container(
-                        width: 40,
-                        height: 36,
+                      // Active top indicator pill
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        margin: const EdgeInsets.only(top: 0),
+                        width: isActive ? 28 : 0,
+                        height: 3,
                         decoration: BoxDecoration(
-                          color: isActive ? AppColors.primaryTint : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          item.icon,
-                          color: isActive ? AppColors.primary : AppColors.textLight,
-                          size: 22,
+                          color: AppColors.primary,
+                          borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(99),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        item.label,
-                        style: AppTextStyles.body(10,
-                            color: isActive ? AppColors.primary : AppColors.textLight,
-                            weight: isActive ? FontWeight.w700 : FontWeight.w400),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 40,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: isActive
+                                    ? AppColors.primaryTint
+                                    : Colors.transparent,
+                                borderRadius:
+                                    BorderRadius.circular(Radii.md),
+                              ),
+                              child: Icon(
+                                item.icon,
+                                color: isActive
+                                    ? AppColors.primary
+                                    : AppColors.textLight,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              item.label,
+                              style: AppTextStyles.body(10,
+                                  color: isActive
+                                      ? AppColors.primary
+                                      : AppColors.textLight,
+                                  weight: isActive
+                                      ? FontWeight.w700
+                                      : FontWeight.w500),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -157,5 +269,6 @@ class _NavItem {
   final IconData icon;
   final String label;
   final bool badge;
-  const _NavItem({required this.icon, required this.label, this.badge = false});
+  const _NavItem(
+      {required this.icon, required this.label, this.badge = false});
 }

@@ -1,6 +1,21 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
+// ─── PENYEBAB ICON RESOLVER ───────────────────────────────────────────────────
+/// Maps an iconKey string (eco/water/bug/thermostat/warning) to a Material icon.
+IconData penyebabIconData(String iconKey) {
+  switch (iconKey) {
+    case 'eco':            return Icons.eco_rounded;
+    case 'water':          return Icons.water_drop_rounded;
+    case 'bug':            return Icons.bug_report_rounded;
+    case 'thermostat':     return Icons.wb_sunny_rounded;
+    case 'local_fire':     return Icons.local_fire_department_rounded;
+    case 'wb_sunny':       return Icons.wb_sunny_rounded;
+    case 'warning':        return Icons.warning_amber_rounded;
+    default:               return Icons.info_outline_rounded;
+  }
+}
+
 // ─── SECTION TITLE ────────────────────────────────────────────────────────────
 class SectionTitle extends StatelessWidget {
   final String title;
@@ -12,12 +27,12 @@ class SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(title, style: AppTextStyles.display(24)),
+      Text(title, style: AppTextStyles.display(22)),
       if (subtitle != null) ...[
-        const SizedBox(height: 4),
+        const SizedBox(height: 3),
         Text(subtitle!, style: AppTextStyles.body(13, color: AppColors.textMuted)),
       ],
-      const SizedBox(height: 24),
+      const SizedBox(height: 20),
     ],
   );
 }
@@ -29,6 +44,7 @@ class AppCard extends StatelessWidget {
   final Color? color;
   final Color? borderColor;
   final double radius;
+  final bool elevated;
 
   const AppCard({
     super.key,
@@ -36,7 +52,8 @@ class AppCard extends StatelessWidget {
     this.padding,
     this.color,
     this.borderColor,
-    this.radius = 20,
+    this.radius = 18,
+    this.elevated = false,
   });
 
   @override
@@ -46,6 +63,13 @@ class AppCard extends StatelessWidget {
       color: color ?? AppColors.surface,
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(color: borderColor ?? AppColors.border),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(elevated ? 0.08 : 0.04),
+          blurRadius: elevated ? 16 : 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
     ),
     child: child,
   );
@@ -67,15 +91,40 @@ class MetricCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => AppCard(
-    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
-    radius: 14,
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppColors.border),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.04),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
     child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(value, style: AppTextStyles.display(17, color: color)),
-        const SizedBox(height: 2),
+        Container(
+          width: 22,
+          height: 3,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(99),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(value,
+            style: AppTextStyles.mono(20,
+                color: color, weight: FontWeight.w700),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis),
+        const SizedBox(height: 1),
         Text(unit, style: AppTextStyles.body(10, color: AppColors.textMuted)),
-        const SizedBox(height: 3),
+        const SizedBox(height: 6),
         Text(label.toUpperCase(), style: AppTextStyles.label()),
       ],
     ),
@@ -87,31 +136,138 @@ class PrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
   final bool loading;
+  final IconData? icon;
 
   const PrimaryButton({
     super.key,
     required this.label,
     this.onTap,
     this.loading = false,
+    this.icon,
   });
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: double.infinity,
-    child: ElevatedButton(
-      onPressed: loading ? null : onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        disabledBackgroundColor: AppColors.border,
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 0,
+  Widget build(BuildContext context) {
+    final isEnabled = !loading && onTap != null;
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(Radii.md),
+        child: InkWell(
+          onTap: isEnabled ? onTap : null,
+          borderRadius: BorderRadius.circular(Radii.md),
+          splashColor: Colors.white.withOpacity(0.12),
+          highlightColor: Colors.white.withOpacity(0.04),
+          child: Ink(
+            decoration: BoxDecoration(
+              gradient: isEnabled
+                  ? const LinearGradient(
+                      colors: [AppColors.primary, AppColors.primary2],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : null,
+              color: isEnabled ? null : AppColors.border,
+              borderRadius: BorderRadius.circular(Radii.md),
+              boxShadow: isEnabled
+                  ? Elevations.primaryGlow(AppColors.primary)
+                  : null,
+            ),
+            child: Center(
+              child: loading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2.2),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (icon != null) ...[
+                          Icon(icon,
+                              size: 18,
+                              color: isEnabled
+                                  ? Colors.white
+                                  : AppColors.textMuted),
+                          const SizedBox(width: 8),
+                        ],
+                        Text(
+                          label,
+                          style: AppTextStyles.body(15,
+                              color: isEnabled
+                                  ? Colors.white
+                                  : AppColors.textMuted,
+                              weight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        ),
       ),
-      child: loading
-          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-          : Text(label, style: AppTextStyles.body(16, color: Colors.white, weight: FontWeight.w700)),
-    ),
-  );
+    );
+  }
+}
+
+// ─── SECONDARY BUTTON ─────────────────────────────────────────────────────────
+class SecondaryButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onTap;
+  final IconData? icon;
+  final Color? color;
+
+  const SecondaryButton({
+    super.key,
+    required this.label,
+    this.onTap,
+    this.icon,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? AppColors.primary;
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(Radii.md),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(Radii.md),
+          splashColor: c.withOpacity(0.08),
+          highlightColor: c.withOpacity(0.04),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(Radii.md),
+              border: Border.all(color: c.withOpacity(0.4), width: 1.5),
+            ),
+            child: Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, size: 18, color: c),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(
+                    label,
+                    style: AppTextStyles.body(14,
+                        color: c, weight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ─── INPUT FIELD ──────────────────────────────────────────────────────────────
@@ -127,7 +283,7 @@ class AppInputField extends StatelessWidget {
     super.key,
     required this.label,
     required this.hint,
-    required this.suffix,
+    this.suffix = '',
     required this.controller,
     this.keyboardType,
     this.highlight = false,
@@ -159,14 +315,21 @@ class AppInputField extends StatelessWidget {
                   hintText: hint,
                   hintStyle: AppTextStyles.body(15, color: AppColors.textLight),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Text(suffix, style: AppTextStyles.body(13, color: highlight ? AppColors.primary3 : AppColors.textMuted, weight: FontWeight.w600)),
-            ),
+            if (suffix.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(right: 14),
+                child: Text(
+                  suffix,
+                  style: AppTextStyles.body(12,
+                      color: highlight ? AppColors.primary3 : AppColors.textMuted,
+                      weight: FontWeight.w600),
+                ),
+              ),
           ],
         ),
       ),
@@ -181,7 +344,7 @@ class StatusBadge extends StatelessWidget {
 
   const StatusBadge({super.key, required this.label, required this.severity});
 
-  Color get color => severity == 'high'
+  Color get _bg => severity == 'high'
       ? AppColors.danger
       : severity == 'medium'
           ? AppColors.warn
@@ -189,8 +352,8 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(99)),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(99)),
     child: Text(
       severity == 'high' ? 'TINGGI' : severity == 'medium' ? 'SEDANG' : 'RENDAH',
       style: AppTextStyles.body(10, color: Colors.white, weight: FontWeight.w700),
@@ -200,7 +363,7 @@ class StatusBadge extends StatelessWidget {
 
 // ─── MINI PROGRESS BAR ────────────────────────────────────────────────────────
 class MiniProgressBar extends StatelessWidget {
-  final double value; // 0.0 - 1.0
+  final double value;
   final Color color;
 
   const MiniProgressBar({super.key, required this.value, required this.color});
@@ -212,7 +375,7 @@ class MiniProgressBar extends StatelessWidget {
       value: value.clamp(0.0, 1.0),
       backgroundColor: AppColors.surfaceAlt,
       valueColor: AlwaysStoppedAnimation(color),
-      minHeight: 6,
+      minHeight: 5,
     ),
   );
 }
