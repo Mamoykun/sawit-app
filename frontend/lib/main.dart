@@ -3,14 +3,14 @@ import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 
+final navigatorKey = GlobalKey<NavigatorState>();
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // Status bar transparan
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
   ));
-  // Portrait only
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const SawitKuApp());
 }
@@ -23,6 +23,7 @@ class SawitKuApp extends StatelessWidget {
     title: 'SawitKu',
     debugShowCheckedModeBanner: false,
     theme: AppTheme.theme,
+    navigatorKey: navigatorKey,
     home: const SplashScreen(),
   );
 }

@@ -33,7 +33,7 @@ class AnalisaService {
 
     if (persenKurang > 8) {
       list.add(AnalisaPenyebab(
-        icon: '🌿',
+        icon: 'eco',
         title: 'Defisiensi Kalium (K)',
         detail: 'Aplikasikan pupuk MOP 0.5–1 kg per pohon. '
             'Kalium meningkatkan bobot tandan dan kualitas minyak sawit.',
@@ -42,7 +42,7 @@ class AnalisaService {
     }
     if (persenKurang > 15) {
       list.add(AnalisaPenyebab(
-        icon: '💧',
+        icon: 'water',
         title: 'Stres Kekeringan',
         detail: 'Pasang mulsa pelepah di piringan pohon radius 2 meter '
             'untuk menjaga kelembaban tanah di musim kering.',
@@ -51,7 +51,7 @@ class AnalisaService {
     }
     if (persenKurang > 20) {
       list.add(AnalisaPenyebab(
-        icon: '🐛',
+        icon: 'bug',
         title: 'Serangan Hama / Penyakit',
         detail: 'Periksa tanda ulat api, kumbang badak, atau gejala '
             'Ganoderma di pangkal batang pohon.',
@@ -60,7 +60,7 @@ class AnalisaService {
     }
     if (persenKurang > 28) {
       list.add(AnalisaPenyebab(
-        icon: '🌾',
+        icon: 'eco',
         title: 'Kompetisi Gulma',
         detail: 'Lakukan penyiangan di piringan pohon. '
             'Gulma bersaing langsung menyerap nutrisi dan air dari tanah.',
@@ -69,7 +69,7 @@ class AnalisaService {
     }
     if (persenKurang > 35) {
       list.add(AnalisaPenyebab(
-        icon: '✂️',
+        icon: 'warning',
         title: 'Pruning Tidak Optimal',
         detail: 'Pertahankan 40–48 pelepah aktif. Terlalu lebat menghambat '
             'penyerbukan dan perkembangan tandan buah segar.',
@@ -79,7 +79,7 @@ class AnalisaService {
 
     if (list.isEmpty && persenKurang > 0) {
       list.add(AnalisaPenyebab(
-        icon: '🌡️',
+        icon: 'thermostat',
         title: 'Faktor Musiman Normal',
         detail: 'Fluktuasi 1–8% masih dalam batas wajar akibat '
             'perubahan cuaca dan siklus alami tanaman sawit.',
@@ -106,7 +106,6 @@ class AnalisaService {
       targetMax: target.max,
       targetMid: target.mid,
       bulan: bulan,
-      tanggalInput: DateTime.now(),
     );
   }
 }

@@ -1,0 +1,383 @@
+import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
+import '../services/api_service.dart';
+import '../widgets/common_widgets.dart';
+import 'login_screen.dart';
+
+class ProfileScreen extends StatefulWidget {
+  final bool embedded;
+  const ProfileScreen({super.key, this.embedded = false});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _loading = true;
+
+  final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  bool _profileSaving = false;
+
+  final _curPassCtrl = TextEditingController();
+  final _newPassCtrl = TextEditingController();
+  final _confirmPassCtrl = TextEditingController();
+  bool _passSaving = false;
+  bool _showCur = false;
+  bool _showNew = false;
+  bool _showConfirm = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
+    _curPassCtrl.dispose();
+    _newPassCtrl.dispose();
+    _confirmPassCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final data = await ApiService().getProfile();
+      _nameCtrl.text = data['name'] ?? '';
+      _emailCtrl.text = data['email'] ?? '';
+      _phoneCtrl.text = data['phone'] ?? '';
+    } catch (_) {}
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _saveProfile() async {
+    final name = _nameCtrl.text.trim();
+    if (name.length < 2) {
+      _showSnack('Nama minimal 2 karakter', isError: true);
+      return;
+    }
+    setState(() => _profileSaving = true);
+    try {
+      await ApiService().updateProfile(name: name, phone: _phoneCtrl.text.trim());
+      _showSnack('Profil berhasil diperbarui');
+    } catch (e) {
+      _showSnack(_parseError(e), isError: true);
+    } finally {
+      if (mounted) setState(() => _profileSaving = false);
+    }
+  }
+
+  Future<void> _changePassword() async {
+    final cur = _curPassCtrl.text;
+    final neo = _newPassCtrl.text;
+    final confirm = _confirmPassCtrl.text;
+
+    if (cur.isEmpty || neo.isEmpty || confirm.isEmpty) {
+      _showSnack('Semua kolom password harus diisi', isError: true);
+      return;
+    }
+    if (neo.length < 6) {
+      _showSnack('Password baru minimal 6 karakter', isError: true);
+      return;
+    }
+    if (neo != confirm) {
+      _showSnack('Konfirmasi password tidak cocok', isError: true);
+      return;
+    }
+    setState(() => _passSaving = true);
+    try {
+      await ApiService().changePassword(currentPassword: cur, newPassword: neo);
+      _curPassCtrl.clear();
+      _newPassCtrl.clear();
+      _confirmPassCtrl.clear();
+      _showSnack('Password berhasil diubah');
+    } catch (e) {
+      _showSnack(_parseError(e), isError: true);
+    } finally {
+      if (mounted) setState(() => _passSaving = false);
+    }
+  }
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Keluar'),
+        content: const Text('Yakin ingin keluar dari akun ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Keluar',
+                style: TextStyle(color: AppColors.danger)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ApiService().logout();
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
+  }
+
+  void _showSnack(String msg, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: isError ? AppColors.danger : AppColors.primary,
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 3),
+    ));
+  }
+
+  String _parseError(Object e) {
+    final s = e.toString();
+    if (s.contains('WRONG_PASSWORD')) return 'Password saat ini salah';
+    if (s.contains('400') || s.contains('422')) return 'Data tidak valid';
+    return 'Terjadi kesalahan, coba lagi';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final body = _loading
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Avatar ──────────────────────────────────────────────
+                  Center(
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryTint,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.primary3, width: 2),
+                      ),
+                      child: Center(
+                        child: Text(
+                          _nameCtrl.text.isNotEmpty
+                              ? _nameCtrl.text[0].toUpperCase()
+                              : '?',
+                          style: AppTextStyles.display(32, color: AppColors.primary),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ── Edit Profil ──────────────────────────────────────────
+                  const _SectionHeader(title: 'Informasi Akun'),
+                  const SizedBox(height: 16),
+                  _ProfileField(
+                    label: 'Nama Lengkap',
+                    controller: _nameCtrl,
+                    hint: 'Masukkan nama lengkap',
+                  ),
+                  const SizedBox(height: 14),
+                  _ProfileField(
+                    label: 'Email',
+                    controller: _emailCtrl,
+                    hint: 'email@contoh.com',
+                    readOnly: true,
+                  ),
+                  const SizedBox(height: 14),
+                  _ProfileField(
+                    label: 'Nomor HP',
+                    controller: _phoneCtrl,
+                    hint: 'Opsional',
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 20),
+                  PrimaryButton(
+                    label: 'Simpan Perubahan',
+                    onTap: _saveProfile,
+                    loading: _profileSaving,
+                  ),
+
+                  const SizedBox(height: 32),
+                  const Divider(color: AppColors.border),
+                  const SizedBox(height: 28),
+
+                  // ── Ganti Password ──────────────────────────────────────
+                  const _SectionHeader(title: 'Ganti Password'),
+                  const SizedBox(height: 16),
+                  _ProfileField(
+                    label: 'Password Saat Ini',
+                    controller: _curPassCtrl,
+                    hint: '••••••••',
+                    obscureText: !_showCur,
+                    suffix: IconButton(
+                      icon: Icon(
+                        _showCur ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                        size: 20,
+                        color: AppColors.textLight,
+                      ),
+                      onPressed: () => setState(() => _showCur = !_showCur),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _ProfileField(
+                    label: 'Password Baru',
+                    controller: _newPassCtrl,
+                    hint: 'Min. 6 karakter',
+                    obscureText: !_showNew,
+                    suffix: IconButton(
+                      icon: Icon(
+                        _showNew ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                        size: 20,
+                        color: AppColors.textLight,
+                      ),
+                      onPressed: () => setState(() => _showNew = !_showNew),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _ProfileField(
+                    label: 'Konfirmasi Password Baru',
+                    controller: _confirmPassCtrl,
+                    hint: 'Ulangi password baru',
+                    obscureText: !_showConfirm,
+                    suffix: IconButton(
+                      icon: Icon(
+                        _showConfirm ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                        size: 20,
+                        color: AppColors.textLight,
+                      ),
+                      onPressed: () => setState(() => _showConfirm = !_showConfirm),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  PrimaryButton(
+                    label: 'Ubah Password',
+                    onTap: _changePassword,
+                    loading: _passSaving,
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ── Keluar ──────────────────────────────────────────────
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: AppColors.dangerTint,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        onTap: _confirmLogout,
+                        borderRadius: BorderRadius.circular(14),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.logout_rounded,
+                                  color: AppColors.danger, size: 20),
+                              const SizedBox(width: 10),
+                              Text('Keluar dari Akun',
+                                  style: AppTextStyles.body(14,
+                                      color: AppColors.danger,
+                                      weight: FontWeight.w700)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+
+    if (widget.embedded) return body;
+
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      appBar: AppBar(
+        title: Text('Profil Saya',
+            style: AppTextStyles.display(18, color: Colors.white)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: body,
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) => Text(
+    title,
+    style: AppTextStyles.display(16, color: AppColors.text),
+  );
+}
+
+class _ProfileField extends StatelessWidget {
+  final String label;
+  final String hint;
+  final TextEditingController controller;
+  final bool readOnly;
+  final bool obscureText;
+  final TextInputType? keyboardType;
+  final Widget? suffix;
+
+  const _ProfileField({
+    required this.label,
+    required this.hint,
+    required this.controller,
+    this.readOnly = false,
+    this.obscureText = false,
+    this.keyboardType,
+    this.suffix,
+  });
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label.toUpperCase(), style: AppTextStyles.label()),
+      const SizedBox(height: 8),
+      Container(
+        decoration: BoxDecoration(
+          color: readOnly ? AppColors.surfaceAlt.withOpacity(0.5) : AppColors.surfaceAlt,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border, width: 1.5),
+        ),
+        child: TextField(
+          controller: controller,
+          readOnly: readOnly,
+          obscureText: obscureText,
+          keyboardType: keyboardType,
+          style: AppTextStyles.body(15, color: readOnly ? AppColors.textMuted : AppColors.text),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: AppTextStyles.body(14, color: AppColors.textLight),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            suffixIcon: suffix,
+          ),
+        ),
+      ),
+    ],
+  );
+}

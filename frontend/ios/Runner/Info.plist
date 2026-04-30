@@ -49,6 +49,12 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Aplikasi memerlukan kamera untuk mengambil foto kondisi tanaman sawit untuk diagnosa AI.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Aplikasi memerlukan akses galeri untuk memilih foto tanaman sawit untuk diagnosa AI.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Tidak dipakai aplikasi ini.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
