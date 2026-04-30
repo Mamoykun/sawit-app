@@ -31,6 +31,9 @@ public class Lahan {
     @Column(name = "usia_pohon", nullable = false)
     private Integer usiaPohon;
 
+    @Column(name = "tahun_tanam")
+    private Integer tahunTanam;
+
     @Column(name = "jumlah_pohon")
     private Integer jumlahPohon;
 

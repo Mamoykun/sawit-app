@@ -26,6 +26,9 @@ public class Panen {
     @Column(name = "bulan_angka", nullable = false)
     private Integer bulanAngka;
 
+    @Column
+    private Integer tanggal;
+
     @Column(name = "ton_aktual", nullable = false, precision = 8, scale = 2)
     private BigDecimal tonAktual;
 

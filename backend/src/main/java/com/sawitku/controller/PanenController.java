@@ -47,4 +47,20 @@ public class PanenController {
                                                                      @PathVariable Long panenId) {
         return ResponseUtil.ok(panenService.getAnalisaByPanen(user.getId(), lahanId, panenId));
     }
+
+    @PutMapping("/{panenId}")
+    public ResponseEntity<ApiResponse<PanenResponse>> update(@AuthenticationPrincipal User user,
+                                                              @PathVariable Long lahanId,
+                                                              @PathVariable Long panenId,
+                                                              @Valid @RequestBody PanenRequest req) {
+        return ResponseUtil.ok(panenService.updatePanen(user.getId(), lahanId, panenId, req));
+    }
+
+    @DeleteMapping("/{panenId}")
+    public ResponseEntity<ApiResponse<Void>> delete(@AuthenticationPrincipal User user,
+                                                     @PathVariable Long lahanId,
+                                                     @PathVariable Long panenId) {
+        panenService.deletePanen(user.getId(), lahanId, panenId);
+        return ResponseUtil.ok(null, "Panen berhasil dihapus");
+    }
 }

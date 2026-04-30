@@ -62,4 +62,29 @@ public class SubscriptionService {
         redisTemplate.opsForValue().increment(key);
         redisTemplate.expire(key, 35, TimeUnit.DAYS);
     }
+
+    public void checkLimitDiagnosaAI(Long userId) {
+        PaketSubscription paket = getPaket(userId);
+        int max = switch (paket) {
+            case GRATIS -> 3;
+            case PETANI -> 20;
+            case PRO -> Integer.MAX_VALUE;
+        };
+        if (max == Integer.MAX_VALUE) return;
+
+        String key = "diagnosa_count:" + userId + ":" + YearMonth.now();
+        String val = redisTemplate.opsForValue().get(key);
+        int count = val != null ? Integer.parseInt(val) : 0;
+        if (count >= max)
+            throw new BusinessException(
+                "Batas diagnosa visual bulan ini untuk paket " + paket.name() + " adalah " + max + " kali. Upgrade paket untuk diagnosa lebih banyak.",
+                "DIAGNOSA_LIMIT_EXCEEDED"
+            );
+    }
+
+    public void incrementDiagnosaCount(Long userId) {
+        String key = "diagnosa_count:" + userId + ":" + YearMonth.now();
+        redisTemplate.opsForValue().increment(key);
+        redisTemplate.expire(key, 35, TimeUnit.DAYS);
+    }
 }

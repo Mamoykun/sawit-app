@@ -33,7 +33,7 @@ class AuthIntegrationTest {
 
     @Test
     void register_emailDuplikat_gagal() throws Exception {
-        String body = """{"name":"A","email":"dup@test.id","password":"pass123"}""";
+        String body = "{\"name\":\"A\",\"email\":\"dup@test.id\",\"password\":\"pass123\"}";
         mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body));
         mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isBadRequest())
@@ -44,11 +44,11 @@ class AuthIntegrationTest {
     void login_sukses() throws Exception {
         mvc.perform(post("/api/auth/register")
             .contentType(MediaType.APPLICATION_JSON)
-            .content("""{"name":"Login Test","email":"login@test.id","password":"password123"}"""));
+            .content("{\"name\":\"Login Test\",\"email\":\"login@test.id\",\"password\":\"password123\"}"));
 
         mvc.perform(post("/api/auth/login")
             .contentType(MediaType.APPLICATION_JSON)
-            .content("""{"email":"login@test.id","password":"password123"}"""))
+            .content("{\"email\":\"login@test.id\",\"password\":\"password123\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.token").isNotEmpty());
     }

@@ -18,14 +18,23 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ClaudeService {
 
     private final AnalisaRepository analisaRepository;
-    private final RedisTemplate<String, String> redisTemplate;
     private final SubscriptionService subscriptionService;
     private final ObjectMapper objectMapper;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private RedisTemplate<String, String> redisTemplate;
+
+    public ClaudeService(AnalisaRepository analisaRepository,
+                         SubscriptionService subscriptionService,
+                         ObjectMapper objectMapper) {
+        this.analisaRepository = analisaRepository;
+        this.subscriptionService = subscriptionService;
+        this.objectMapper = objectMapper;
+    }
 
     @Value("${claude.api-key}")
     private String apiKey;
@@ -48,11 +57,11 @@ public class ClaudeService {
             AnalisaResult result = parseResponse(rawResponse);
             saveAnalisa(panen, lahan, result, rawResponse);
             subscriptionService.incrementAnalisaCount(lahan.getUser().getId());
-            redisTemplate.opsForValue().set(cacheKey, "DONE", 7, TimeUnit.DAYS);
+            if (redisTemplate != null) redisTemplate.opsForValue().set(cacheKey, "DONE", 7, TimeUnit.DAYS);
         } catch (Exception e) {
             log.error("Claude API error untuk panen {}: {}", panen.getId(), e.getMessage());
             saveFallbackAnalisa(panen, lahan);
-            redisTemplate.opsForValue().set(cacheKey, "DONE", 7, TimeUnit.DAYS);
+            if (redisTemplate != null) redisTemplate.opsForValue().set(cacheKey, "DONE", 7, TimeUnit.DAYS);
         }
     }
 
@@ -75,7 +84,9 @@ public class ClaudeService {
 
             Analisa penyebab mengapa panen di bawah target dan berikan rekomendasi spesifik.
             Balas HANYA dengan JSON valid (tanpa markdown/backtick):
-            {"penyebab":[{"icon":"emoji","title":"judul singkat","detail":"penjelasan + rekomendasi 2-3 kalimat","severity":"high|medium|low","estimasi_dampak":"X-Y%% penurunan"}],"ringkasan":"ringkasan 1 kalimat","prioritas_tindakan":"tindakan paling penting minggu ini"}
+            {"penyebab":[{"icon":"<ICON_KEY>","title":"judul singkat","detail":"penjelasan + rekomendasi 2-3 kalimat","severity":"high|medium|low","estimasi_dampak":"X-Y%% penurunan"}],"ringkasan":"ringkasan 1 kalimat","prioritas_tindakan":"tindakan paling penting minggu ini"}
+
+            <ICON_KEY> harus salah satu dari: "eco" (nutrisi/pupuk/gulma), "water" (air/kekeringan/drainase), "bug" (hama/penyakit), "thermostat" (cuaca/musim), "warning" (manajemen/lainnya). JANGAN gunakan emoji.
             """.formatted(
                 lahan.getNamaLahan(), lahan.getLuasHa(), lahan.getUsiaPohon(),
                 target.fase(), lahan.getLokasi() != null ? lahan.getLokasi() : "Tidak diketahui",
@@ -149,15 +160,133 @@ public class ClaudeService {
 
     private List<AnalisaResponse.PenyebabItem> getFallbackPenyebab(double persen) {
         List<AnalisaResponse.PenyebabItem> list = new ArrayList<>();
-        if (persen > 8) list.add(item("🌿", "Defisiensi Kalium (K)", "Aplikasikan pupuk MOP 0.5–1 kg per pohon. Kalium meningkatkan bobot tandan dan kualitas minyak sawit.", "high", "8-15%"));
-        if (persen > 15) list.add(item("💧", "Stres Kekeringan", "Pasang mulsa pelepah di piringan pohon radius 2 meter untuk menjaga kelembaban tanah di musim kering.", "high", "10-20%"));
-        if (persen > 20) list.add(item("🐛", "Serangan Hama / Penyakit", "Periksa tanda ulat api, kumbang badak, atau gejala Ganoderma di pangkal batang pohon.", "medium", "5-15%"));
-        if (list.isEmpty()) list.add(item("🌡️", "Faktor Musiman Normal", "Fluktuasi 1–8% masih dalam batas wajar akibat perubahan cuaca dan siklus alami tanaman sawit.", "low", "1-8%"));
+        if (persen > 8) list.add(item("eco", "Defisiensi Kalium (K)", "Aplikasikan pupuk MOP 0.5–1 kg per pohon. Kalium meningkatkan bobot tandan dan kualitas minyak sawit.", "high", "8-15%"));
+        if (persen > 15) list.add(item("water", "Stres Kekeringan", "Pasang mulsa pelepah di piringan pohon radius 2 meter untuk menjaga kelembaban tanah di musim kering.", "high", "10-20%"));
+        if (persen > 20) list.add(item("bug", "Serangan Hama / Penyakit", "Periksa tanda ulat api, kumbang badak, atau gejala Ganoderma di pangkal batang pohon.", "medium", "5-15%"));
+        if (list.isEmpty()) list.add(item("thermostat", "Faktor Musiman Normal", "Fluktuasi 1–8% masih dalam batas wajar akibat perubahan cuaca dan siklus alami tanaman sawit.", "low", "1-8%"));
         return list;
     }
 
     private AnalisaResponse.PenyebabItem item(String icon, String title, String detail, String severity, String dampak) {
         return AnalisaResponse.PenyebabItem.builder()
             .icon(icon).title(title).detail(detail).severity(severity).estimasiDampak(dampak).build();
+    }
+
+    // ─── VISUAL DIAGNOSA (Claude Vision) ─────────────────────────────────────
+
+    public record VisualDiagnosaResult(
+        String kondisi, String penyebab, String rekomendasi,
+        String severity, boolean isFallback) {}
+
+    public VisualDiagnosaResult analyzeImage(String imageBase64, String jenis,
+                                              com.sawitku.entity.Lahan lahan) {
+        try {
+            String prompt = buildVisualPrompt(jenis, lahan);
+            String rawResponse = callClaudeVisionApi(prompt, imageBase64);
+            return parseVisualResponse(rawResponse);
+        } catch (Exception e) {
+            log.error("Claude Vision error untuk jenis {}: {}", jenis, e.getMessage());
+            return getFallbackVisualResult(jenis);
+        }
+    }
+
+    private String buildVisualPrompt(String jenis, com.sawitku.entity.Lahan lahan) {
+        String konteks = "Konteks kebun: luas %s ha, usia pohon %d tahun".formatted(
+            lahan.getLuasHa(), lahan.getUsiaPohon());
+        String fokus = switch (jenis) {
+            case "BUAH" -> "Foto ini adalah BUAH/TANDAN sawit. Fokus pada: kematangan (mentah/matang/lewat matang), warna brondolan, ukuran tandan, kerusakan fisik, indikasi serangan hama.";
+            case "BATANG" -> "Foto ini adalah BATANG/POHON sawit. Fokus pada: kondisi pangkal batang, tanda penyakit Ganoderma (jamur putih/akar busuk), kerusakan kumbang, retak/luka.";
+            case "PELEPAH" -> "Foto ini adalah PELEPAH/DAUN sawit. Fokus pada: warna daun (defisiensi nutrisi), bercak penyakit, serangan ulat api, kekurangan air, gejala defisiensi Mg/N/K.";
+            default -> "Analisa kondisi tanaman sawit pada foto ini.";
+        };
+        return """
+            Kamu adalah ahli agronomi sawit Indonesia berpengalaman 20 tahun.
+            %s
+            %s
+
+            Berikan analisa dalam format JSON valid (tanpa markdown/backtick):
+            {"kondisi":"deskripsi 1-2 kalimat apa yang terlihat di foto","penyebab":"kemungkinan penyebab atau identifikasi 1-2 kalimat","rekomendasi":"tindakan konkret yang harus dilakukan petani 2-3 kalimat","severity":"NORMAL|PERHATIAN|KRITIS"}
+
+            Pedoman severity:
+            - NORMAL: kondisi baik, tidak ada masalah
+            - PERHATIAN: ada gejala awal yang perlu dipantau
+            - KRITIS: butuh tindakan segera, ada kerugian signifikan
+            """.formatted(konteks, fokus);
+    }
+
+    @SuppressWarnings("unchecked")
+    private String callClaudeVisionApi(String prompt, String imageBase64) {
+        RestTemplate rest = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("x-api-key", apiKey);
+        headers.set("anthropic-version", "2023-06-01");
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        String mediaType = imageBase64.startsWith("/9j/") ? "image/jpeg"
+                          : imageBase64.startsWith("iVBOR") ? "image/png"
+                          : "image/jpeg";
+
+        Map<String, Object> imageContent = Map.of(
+            "type", "image",
+            "source", Map.of(
+                "type", "base64",
+                "media_type", mediaType,
+                "data", imageBase64
+            )
+        );
+        Map<String, Object> textContent = Map.of("type", "text", "text", prompt);
+
+        Map<String, Object> body = Map.of(
+            "model", model,
+            "max_tokens", maxTokens,
+            "messages", List.of(Map.of(
+                "role", "user",
+                "content", List.of(imageContent, textContent)
+            ))
+        );
+
+        ResponseEntity<Map> response = rest.exchange(
+            CLAUDE_API_URL, HttpMethod.POST, new HttpEntity<>(body, headers), Map.class);
+
+        List<Map<String, Object>> content = (List<Map<String, Object>>) response.getBody().get("content");
+        return (String) content.get(0).get("text");
+    }
+
+    @SuppressWarnings("unchecked")
+    private VisualDiagnosaResult parseVisualResponse(String raw) throws Exception {
+        Map<String, Object> parsed = objectMapper.readValue(raw.trim(), Map.class);
+        String severity = (String) parsed.getOrDefault("severity", "NORMAL");
+        if (!List.of("NORMAL", "PERHATIAN", "KRITIS").contains(severity)) severity = "NORMAL";
+        return new VisualDiagnosaResult(
+            (String) parsed.getOrDefault("kondisi", ""),
+            (String) parsed.getOrDefault("penyebab", ""),
+            (String) parsed.getOrDefault("rekomendasi", ""),
+            severity, false
+        );
+    }
+
+    private VisualDiagnosaResult getFallbackVisualResult(String jenis) {
+        return switch (jenis) {
+            case "BUAH" -> new VisualDiagnosaResult(
+                "Tidak dapat menganalisa foto secara otomatis saat ini.",
+                "Layanan diagnosa AI sedang sibuk atau gambar tidak jelas.",
+                "Pastikan panen saat tandan matang penuh: brondolan jatuh 5-10 buah/tandan, warna oranye-kemerahan, tandan padat. Hindari panen mentah karena rendemen minyak rendah.",
+                "PERHATIAN", true);
+            case "BATANG" -> new VisualDiagnosaResult(
+                "Tidak dapat menganalisa foto secara otomatis saat ini.",
+                "Layanan diagnosa AI sedang sibuk atau gambar tidak jelas.",
+                "Periksa pangkal batang dari tanda Ganoderma (jamur putih, akar busuk berwarna coklat). Jika ada gejala, isolasi pohon dan konsultasi penyuluh. Hindari pelukaan batang saat panen.",
+                "PERHATIAN", true);
+            case "PELEPAH" -> new VisualDiagnosaResult(
+                "Tidak dapat menganalisa foto secara otomatis saat ini.",
+                "Layanan diagnosa AI sedang sibuk atau gambar tidak jelas.",
+                "Pelepah menguning bisa menandakan defisiensi: Mg (menguning antar tulang daun), N (menguning seluruh daun), atau K (bercak oranye di pinggir). Aplikasikan pupuk sesuai gejala dan dosis standar PPKS.",
+                "PERHATIAN", true);
+            default -> new VisualDiagnosaResult(
+                "Tidak dapat menganalisa foto.",
+                "Foto tidak teridentifikasi.",
+                "Coba ambil foto lebih jelas dengan pencahayaan cukup.",
+                "NORMAL", true);
+        };
     }
 }

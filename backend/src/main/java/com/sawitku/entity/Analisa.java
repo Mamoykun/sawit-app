@@ -2,6 +2,8 @@ package com.sawitku.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 
 @Entity
@@ -20,6 +22,7 @@ public class Analisa {
     @JoinColumn(name = "lahan_id", nullable = false)
     private Lahan lahan;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "penyebab_json", columnDefinition = "JSONB")
     private String penyebabJson;
 

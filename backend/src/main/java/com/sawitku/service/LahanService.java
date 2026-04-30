@@ -10,6 +10,7 @@ import com.sawitku.util.AnalisaCalculator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -25,9 +26,14 @@ public class LahanService {
     public LahanResponse createLahan(Long userId, LahanRequest req) {
         subscriptionService.checkLimitLahan(userId);
         User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User tidak ditemukan"));
+        int currentYear = LocalDate.now().getYear();
+        Integer tahunTanam = req.getTahunTanam();
+        Integer usiaPohon = req.getUsiaPohon();
+        if (tahunTanam == null && usiaPohon != null) tahunTanam = currentYear - usiaPohon;
+        if (usiaPohon == null && tahunTanam != null) usiaPohon = currentYear - tahunTanam;
         Lahan lahan = Lahan.builder()
             .user(user).namaLahan(req.getNamaLahan())
-            .luasHa(req.getLuasHa()).usiaPohon(req.getUsiaPohon())
+            .luasHa(req.getLuasHa()).usiaPohon(usiaPohon).tahunTanam(tahunTanam)
             .jumlahPohon(req.getJumlahPohon()).lokasi(req.getLokasi())
             .latitude(req.getLatitude()).longitude(req.getLongitude())
             .catatan(req.getCatatan()).isActive(true).build();
@@ -39,9 +45,15 @@ public class LahanService {
     public LahanResponse updateLahan(Long userId, Long lahanId, LahanRequest req) {
         Lahan lahan = lahanRepository.findByIdAndUserId(lahanId, userId)
             .orElseThrow(() -> new ResourceNotFoundException("Lahan tidak ditemukan"));
+        int currentYear = LocalDate.now().getYear();
+        Integer tahunTanam = req.getTahunTanam();
+        Integer usiaPohon = req.getUsiaPohon();
+        if (tahunTanam == null && usiaPohon != null) tahunTanam = currentYear - usiaPohon;
+        if (usiaPohon == null && tahunTanam != null) usiaPohon = currentYear - tahunTanam;
         lahan.setNamaLahan(req.getNamaLahan());
         lahan.setLuasHa(req.getLuasHa());
-        lahan.setUsiaPohon(req.getUsiaPohon());
+        lahan.setUsiaPohon(usiaPohon);
+        lahan.setTahunTanam(tahunTanam);
         lahan.setJumlahPohon(req.getJumlahPohon());
         lahan.setLokasi(req.getLokasi());
         lahan.setLatitude(req.getLatitude());
@@ -71,7 +83,10 @@ public class LahanService {
     }
 
     private LahanResponse toResponse(Lahan lahan) {
-        var target = AnalisaCalculator.getTarget(lahan.getLuasHa().doubleValue(), lahan.getUsiaPohon());
+        int usia = lahan.getTahunTanam() != null
+            ? LocalDate.now().getYear() - lahan.getTahunTanam()
+            : lahan.getUsiaPohon();
+        var target = AnalisaCalculator.getTarget(lahan.getLuasHa().doubleValue(), usia);
         LahanResponse.PanenSummary panenSummary = panenRepository
             .findFirstByLahanIdOrderByTahunDescBulanAngkaDesc(lahan.getId())
             .map(p -> LahanResponse.PanenSummary.builder()
@@ -82,7 +97,7 @@ public class LahanService {
 
         return LahanResponse.builder()
             .id(lahan.getId()).namaLahan(lahan.getNamaLahan())
-            .luasHa(lahan.getLuasHa()).usiaPohon(lahan.getUsiaPohon())
+            .luasHa(lahan.getLuasHa()).usiaPohon(usia).tahunTanam(lahan.getTahunTanam())
             .jumlahPohon(lahan.getJumlahPohon()).lokasi(lahan.getLokasi())
             .latitude(lahan.getLatitude()).longitude(lahan.getLongitude())
             .catatan(lahan.getCatatan()).isActive(lahan.getIsActive())

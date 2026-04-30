@@ -7,9 +7,12 @@ public class PanenResponse {
     private Long id;
     private Long lahanId;
     private String namaLahan;
+    private java.math.BigDecimal luasHa;
+    private Integer usiaPohon;
     private String bulan;
     private Integer tahun;
     private Integer bulanAngka;
+    private Integer tanggal;
     private BigDecimal tonAktual;
     private BigDecimal targetMin;
     private BigDecimal targetMax;

@@ -34,6 +34,13 @@ public class GlobalExceptionHandler {
             .timestamp(LocalDateTime.now()).build());
     }
 
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUpload(org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(ApiResponse.<Void>builder()
+            .success(false).message("Ukuran file terlalu besar. Maksimal 10MB.").code("FILE_TOO_LARGE")
+            .timestamp(LocalDateTime.now()).build());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.<Void>builder()

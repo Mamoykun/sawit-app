@@ -8,6 +8,7 @@ public class LahanResponse {
     private String namaLahan;
     private BigDecimal luasHa;
     private Integer usiaPohon;
+    private Integer tahunTanam;
     private Integer jumlahPohon;
     private String lokasi;
     private BigDecimal latitude;

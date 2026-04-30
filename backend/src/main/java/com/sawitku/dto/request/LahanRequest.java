@@ -6,7 +6,9 @@ import java.math.BigDecimal;
 public class LahanRequest {
     @NotBlank @Size(max=100) public String namaLahan;
     @NotNull @Positive public BigDecimal luasHa;
-    @NotNull @Min(1) @Max(50) public Integer usiaPohon;
+    // Salah satu wajib diisi: tahunTanam atau usiaPohon
+    public Integer tahunTanam;
+    public Integer usiaPohon;
     public Integer jumlahPohon;
     @Size(max=255) public String lokasi;
     public BigDecimal latitude;
