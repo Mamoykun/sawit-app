@@ -113,6 +113,7 @@ void main() {
       await service.flush();
       final queue = await db.select(db.syncQueue).get();
       expect(queue, isEmpty);
+      expect(api.inputPanenCallCount, 1);
     });
 
     test('flush replaces temp id with server id in panens table', () async {

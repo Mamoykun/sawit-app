@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/widgets.dart';
 import '../database/app_database.dart';
 import '../models/biaya_model.dart';
+import '../models/panen_model.dart';
 import '../services/api_service.dart';
 
 class SyncService with WidgetsBindingObserver {
@@ -172,25 +173,30 @@ class SyncService with WidgetsBindingObserver {
       case 'lahan_delete':
         await _api.deleteLahan(item.localId);
         break;
+
+      default:
+        throw StateError(
+          'SyncService: unknown operation "${item.entity}_${item.operation}" (queue id ${item.id})',
+        );
     }
   }
 
-  PanensCompanion _panenToCompanion(dynamic m, int lahanId) => PanensCompanion(
-    id: Value(m.id as int),
+  PanensCompanion _panenToCompanion(PanenModel m, int lahanId) => PanensCompanion(
+    id: Value(m.id!),
     lahanId: Value(lahanId),
-    bulan: Value(m.bulan as String),
-    tahun: Value((m.tahun ?? DateTime.now().year) as int),
-    bulanAngka: Value((m.bulanAngka ?? DateTime.now().month) as int),
-    tanggal: Value(m.tanggal as int?),
-    tonAktual: Value(m.tonAktual as double),
-    targetMin: Value(m.targetMin as double),
-    targetMax: Value(m.targetMax as double),
-    targetMid: Value(m.targetMid as double),
-    hargaPerTon: Value(m.hargaPerTon as double),
-    statusPanen: Value(m.statusPanen as String?),
-    persenKurang: Value(m.persenKurang as double),
-    luasHa: Value(m.luasHa as double),
-    usiaPohon: Value(m.usiaTahun as int),
+    bulan: Value(m.bulan),
+    tahun: Value(m.tahun ?? DateTime.now().year),
+    bulanAngka: Value(m.bulanAngka ?? DateTime.now().month),
+    tanggal: Value(m.tanggal),
+    tonAktual: Value(m.tonAktual),
+    targetMin: Value(m.targetMin),
+    targetMax: Value(m.targetMax),
+    targetMid: Value(m.targetMid),
+    hargaPerTon: Value(m.hargaPerTon),
+    statusPanen: Value(m.statusPanen),
+    persenKurang: Value(m.persenKurang),
+    luasHa: Value(m.luasHa),
+    usiaPohon: Value(m.usiaTahun),
     cachedAt: Value(DateTime.now().millisecondsSinceEpoch),
   );
 
