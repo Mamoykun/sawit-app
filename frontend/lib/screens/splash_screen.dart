@@ -5,6 +5,7 @@ import '../widgets/sawit_logo.dart';
 import '../widgets/organic_background.dart';
 import 'login_screen.dart';
 import 'lahan_screen.dart';
+import 'welcome_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -48,11 +49,26 @@ class _SplashScreenState extends State<SplashScreen>
       isLoggedIn = false;
     }
     if (!mounted) return;
+
+    // Determine next screen:
+    // - Not logged in & first time → Welcome
+    // - Not logged in & seen welcome → Login
+    // - Logged in → Lahan (welcome already shown after register)
+    Widget next;
+    if (isLoggedIn) {
+      next = const LahanScreen();
+    } else if (await WelcomeScreen.shouldShow()) {
+      // First-time visitor: Welcome → Login → ... → Lahan (after login)
+      next = const WelcomeScreen(destination: LoginScreen());
+    } else {
+      next = const LoginScreen();
+    }
+
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) =>
-            isLoggedIn ? const LahanScreen() : const LoginScreen(),
+        pageBuilder: (_, __, ___) => next,
         transitionsBuilder: (_, anim, __, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 400),
