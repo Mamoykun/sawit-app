@@ -204,6 +204,13 @@ public class ClaudeService {
             %s
             %s
 
+            LANGKAH 1 — VALIDASI FOTO:
+            Pertama, pastikan foto ini adalah tanaman kelapa sawit (Elaeis guineensis).
+            Jika foto BUKAN tanaman sawit (misal: tanaman lain, manusia, hewan, objek non-tanaman,
+            screenshot, gambar acak), kembalikan JSON ini tepat:
+            {"kondisi":"BUKAN_SAWIT","penyebab":"","rekomendasi":"","severity":"NORMAL"}
+
+            LANGKAH 2 — JIKA FOTO ADALAH SAWIT:
             Berikan analisa dalam format JSON valid (tanpa markdown/backtick):
             {"kondisi":"deskripsi 1-2 kalimat apa yang terlihat di foto","penyebab":"kemungkinan penyebab atau identifikasi 1-2 kalimat","rekomendasi":"tindakan konkret yang harus dilakukan petani 2-3 kalimat","severity":"NORMAL|PERHATIAN|KRITIS"}
 

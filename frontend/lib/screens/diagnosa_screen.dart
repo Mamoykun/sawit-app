@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -19,7 +19,6 @@ class DiagnosaScreen extends StatefulWidget {
 
 class _DiagnosaScreenState extends State<DiagnosaScreen> {
   JenisDiagnosa _jenis = JenisDiagnosa.buah;
-  File? _imageFile;
   List<int>? _imageBytes;
   String? _imageName;
   bool _analyzing = false;
@@ -46,7 +45,6 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
 
       if (mounted) {
         setState(() {
-          _imageFile = File(picked.path);
           _imageBytes = compressed;
           _imageName = picked.name;
           _result = null; // reset previous result
@@ -140,21 +138,48 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _analyzing = false);
-        final msg = e.toString().contains('DIAGNOSA_LIMIT_EXCEEDED')
-            ? 'Kuota diagnosa AI bulan ini sudah habis. Upgrade paket untuk diagnosa lebih banyak.'
-            : 'Gagal menganalisa foto. Coba lagi.';
+        final errStr = e.toString();
+        final msg = _parseDiagnosaError(errStr);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(msg),
           backgroundColor: AppColors.danger,
-          duration: const Duration(seconds: 4),
+          duration: const Duration(seconds: 5),
         ));
       }
     }
   }
 
+  String _parseDiagnosaError(String s) {
+    // Try server message first
+    final msgMatch = RegExp(r'"message"\s*:\s*"([^"]+)"').firstMatch(s);
+    if (msgMatch != null) return msgMatch.group(1)!;
+
+    if (s.contains('DIAGNOSA_LIMIT_EXCEEDED')) {
+      return 'Kuota diagnosa AI bulan ini sudah habis. Upgrade paket untuk diagnosa lebih banyak.';
+    }
+    if (s.contains('PHOTO_NOT_SAWIT')) {
+      return 'Foto bukan tanaman sawit. Mohon foto langsung buah/batang/pelepah sawit.';
+    }
+    if (s.contains('IMAGE_DUPLICATE')) {
+      return 'Foto sama sudah pernah dianalisa baru-baru ini. Coba foto lain.';
+    }
+    if (s.contains('RATE_LIMIT_DIAGNOSA')) {
+      return 'Terlalu banyak diagnosa dalam 1 jam. Coba lagi nanti.';
+    }
+    if (s.contains('IMAGE_TOO_SMALL')) {
+      return 'Resolusi foto terlalu kecil (minimal 200×200 piksel).';
+    }
+    if (s.contains('IMAGE_INVALID_FORMAT') || s.contains('IMAGE_CORRUPT')) {
+      return 'Format foto tidak didukung. Coba foto lain.';
+    }
+    if (s.contains('IMAGE_BAD_RATIO')) {
+      return 'Rasio foto tidak wajar. Mohon foto langsung tanaman.';
+    }
+    return 'Gagal menganalisa foto. Coba lagi.';
+  }
+
   void _reset() {
     setState(() {
-      _imageFile = null;
       _imageBytes = null;
       _imageName = null;
       _result = null;
@@ -287,11 +312,15 @@ class _DiagnosaScreenState extends State<DiagnosaScreen> {
                     border: Border.all(color: AppColors.border, width: 1.5),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: _imageFile != null
+                  child: _imageBytes != null
                       ? Stack(
                           children: [
                             Positioned.fill(
-                              child: Image.file(_imageFile!, fit: BoxFit.cover),
+                              child: Image.memory(
+                                Uint8List.fromList(_imageBytes!),
+                                fit: BoxFit.cover,
+                                gaplessPlayback: true,
+                              ),
                             ),
                             Positioned(
                               top: 10,
