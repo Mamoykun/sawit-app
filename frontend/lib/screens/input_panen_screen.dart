@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -33,7 +33,6 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
   late DateTime _selectedDate;
 
   // Optional photo
-  File? _imageFile;
   List<int>? _imageBytes;
   String? _imageName;
 
@@ -77,7 +76,6 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
       );
       if (mounted) {
         setState(() {
-          _imageFile = File(picked.path);
           _imageBytes = compressed;
           _imageName = picked.name;
         });
@@ -303,10 +301,9 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
 
             // Optional photo section
             _PhotoSection(
-              imageFile: _imageFile,
+              imageBytes: _imageBytes,
               onPick: _showImagePicker,
               onRemove: () => setState(() {
-                _imageFile = null;
                 _imageBytes = null;
                 _imageName = null;
               }),
@@ -393,12 +390,12 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
 }
 
 class _PhotoSection extends StatelessWidget {
-  final File? imageFile;
+  final List<int>? imageBytes;
   final VoidCallback onPick;
   final VoidCallback onRemove;
 
   const _PhotoSection({
-    required this.imageFile,
+    required this.imageBytes,
     required this.onPick,
     required this.onRemove,
   });
@@ -443,12 +440,16 @@ class _PhotoSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          if (imageFile != null) ...[
+          if (imageBytes != null) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: AspectRatio(
                 aspectRatio: 16 / 9,
-                child: Image.file(imageFile!, fit: BoxFit.cover),
+                child: Image.memory(
+                  Uint8List.fromList(imageBytes!),
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true,
+                ),
               ),
             ),
             const SizedBox(height: 10),

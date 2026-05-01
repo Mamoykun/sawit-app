@@ -3,6 +3,7 @@ import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/sawit_logo.dart';
+import 'legal_screen.dart';
 import 'register_screen.dart';
 import 'lahan_screen.dart';
 
@@ -193,6 +194,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      _LegalFooter(),
                     ],
                   ),
                 ),
@@ -247,4 +250,48 @@ class _TextField extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _LegalFooter extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text('Dengan masuk Anda menyetujui ',
+              style: AppTextStyles.body(11, color: AppColors.textMuted)),
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) =>
+                      const LegalScreen(initialTab: LegalTab.terms)),
+            ),
+            child: Text('Syarat & Ketentuan',
+                style: AppTextStyles.body(11,
+                    color: AppColors.primary,
+                    weight: FontWeight.w700)),
+          ),
+          Text(' dan ',
+              style: AppTextStyles.body(11, color: AppColors.textMuted)),
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) =>
+                      const LegalScreen(initialTab: LegalTab.privacy)),
+            ),
+            child: Text('Kebijakan Privasi',
+                style: AppTextStyles.body(11,
+                    color: AppColors.primary,
+                    weight: FontWeight.w700)),
+          ),
+          Text('.',
+              style: AppTextStyles.body(11, color: AppColors.textMuted)),
+        ],
+      ),
+    );
+  }
 }

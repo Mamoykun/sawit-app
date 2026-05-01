@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../models/panen_model.dart';
 import '../models/lahan_model.dart';
@@ -33,11 +34,27 @@ class BerandaScreen extends StatefulWidget {
 class _BerandaScreenState extends State<BerandaScreen> {
   List<PanenModel>? _history;
   bool _loading = true;
+  bool _showHint = false;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _checkFirstVisitHint();
+  }
+
+  Future<void> _checkFirstVisitHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    final dismissed = prefs.getBool('beranda_hint_dismissed') ?? false;
+    if (!dismissed && mounted) {
+      setState(() => _showHint = true);
+    }
+  }
+
+  Future<void> _dismissHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('beranda_hint_dismissed', true);
+    if (mounted) setState(() => _showHint = false);
   }
 
   @override
@@ -75,6 +92,8 @@ class _BerandaScreenState extends State<BerandaScreen> {
         onOpenJadwalPupuk: _openJadwalPupuk,
         onOpenPerbandingan: _openPerbandingan,
         onOpenTips: _openTips,
+        showHint: _showHint,
+        onDismissHint: _dismissHint,
       ),
     );
   }
@@ -156,6 +175,8 @@ class _BerandaContent extends StatelessWidget {
   final VoidCallback onOpenJadwalPupuk;
   final VoidCallback onOpenPerbandingan;
   final VoidCallback onOpenTips;
+  final bool showHint;
+  final VoidCallback onDismissHint;
 
   const _BerandaContent({
     required this.lahan,
@@ -167,6 +188,8 @@ class _BerandaContent extends StatelessWidget {
     required this.onOpenJadwalPupuk,
     required this.onOpenPerbandingan,
     required this.onOpenTips,
+    required this.showHint,
+    required this.onDismissHint,
   });
 
   @override
@@ -181,10 +204,15 @@ class _BerandaContent extends StatelessWidget {
     final isBelowTarget = last != null && last.tonAktual < last.targetMin;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // First-visit hint banner
+          if (showHint) ...[
+            _FirstVisitHint(onDismiss: onDismissHint),
+            const SizedBox(height: 16),
+          ],
           // ── Header ──
           Text('Selamat datang kembali',
               style: AppTextStyles.body(13, color: AppColors.textMuted)),
@@ -1041,6 +1069,71 @@ class _PlainSummary extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FirstVisitHint extends StatelessWidget {
+  final VoidCallback onDismiss;
+  const _FirstVisitHint({required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.gold.withOpacity(0.12),
+            AppColors.goldLight.withOpacity(0.08),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(Radii.lg),
+        border: Border.all(color: AppColors.gold.withOpacity(0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.gold,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.tips_and_updates_rounded,
+                color: Colors.white, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Tips Memulai',
+                    style: AppTextStyles.body(12,
+                        color: AppColors.gold,
+                        weight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Text(
+                  'Tap ikon "Input Panen" di bawah untuk catat hasil panen pertama Anda. '
+                  'Setelah ada data, AI akan analisa & beri rekomendasi otomatis.',
+                  style: AppTextStyles.body(12.5,
+                      color: AppColors.textMid),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close_rounded,
+                size: 18, color: AppColors.textMuted),
+            tooltip: 'Tutup',
+            onPressed: onDismiss,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
+        ],
+      ),
     );
   }
 }
