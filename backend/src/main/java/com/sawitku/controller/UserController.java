@@ -1,6 +1,7 @@
 package com.sawitku.controller;
 
 import com.sawitku.dto.request.ChangePasswordRequest;
+import com.sawitku.dto.request.DeleteAccountRequest;
 import com.sawitku.dto.request.UpdateProfileRequest;
 import com.sawitku.dto.response.ApiResponse;
 import com.sawitku.dto.response.AuthResponse;
@@ -39,5 +40,21 @@ public class UserController {
             @Valid @RequestBody ChangePasswordRequest req) {
         userService.changePassword(user, req);
         return ResponseUtil.ok(null, "Password berhasil diubah");
+    }
+
+    /// Permanently delete account (PDP UU 27/2022 — right to erasure).
+    @DeleteMapping("/me")
+    public ResponseEntity<ApiResponse<Void>> deleteAccount(
+            @AuthenticationPrincipal User user,
+            @Valid @RequestBody DeleteAccountRequest req) {
+        userService.deleteAccount(user, req.getConfirmPassword());
+        return ResponseUtil.ok(null, "Akun dan semua data Anda telah dihapus permanen");
+    }
+
+    /// Export all user data (PDP UU 27/2022 — right to data portability).
+    @GetMapping("/me/export")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> exportData(
+            @AuthenticationPrincipal User user) {
+        return ResponseUtil.ok(userService.exportUserData(user));
     }
 }
