@@ -87,5 +87,38 @@ void main() {
       expect(queue.first.entity, 'lahan');
       expect(queue.first.operation, 'delete');
     });
+
+    test('create calls API and caches result in SQLite', () async {
+      // _FakeApi.createLahan returns LahanModel(id:1, namaLahan: provided, ...)
+      final result = await repo.create(
+        namaLahan: 'Kebun Baru', luasHa: 15.0, tahunTanam: 2018,
+      );
+      expect(result.id, 1); // server-assigned id
+      expect(result.namaLahan, 'Kebun Baru');
+      // Should be cached in SQLite
+      final cached = await repo.getAll();
+      expect(cached.any((l) => l.namaLahan == 'Kebun Baru'), isTrue);
+    });
+
+    test('update calls API and updates SQLite cache', () async {
+      // Seed an existing lahan in SQLite
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await db.into(db.lahans).insert(LahansCompanion(
+        id: Value(3),
+        namaLahan: Value('Kebun Lama'),
+        luasHa: Value(10.0),
+        usiaPohon: Value(5),
+        cachedAt: Value(now),
+      ));
+      // Update via repository
+      final result = await repo.update(
+        3, namaLahan: 'Kebun Diperbarui', luasHa: 12.0, tahunTanam: 2019,
+      );
+      expect(result.id, 3);
+      expect(result.namaLahan, 'Kebun Diperbarui');
+      // Cache should reflect the update
+      final cached = await repo.getAll();
+      expect(cached.any((l) => l.namaLahan == 'Kebun Diperbarui'), isTrue);
+    });
   });
 }

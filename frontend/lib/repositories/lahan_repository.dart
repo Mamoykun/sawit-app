@@ -22,7 +22,11 @@ class LahanRepository {
     return rows.map(_rowToModel).toList();
   }
 
-  /// Create lahan — requires network (usiaPohon computed server-side).
+  /// Creates a new lahan via the server (network-required).
+  /// Lahan creation is intentionally NOT offline-queued because:
+  /// - [usiaPohon] is computed server-side from [tahunTanam]
+  /// - The server-assigned [id] is needed immediately to proceed in the app
+  /// After success, caches the result locally via [upsertFromServer].
   Future<LahanModel> create({
     required String namaLahan,
     required double luasHa,
@@ -41,7 +45,9 @@ class LahanRepository {
     return result;
   }
 
-  /// Update lahan — requires network.
+  /// Updates a lahan via the server (network-required).
+  /// Same rationale as [create] — server computes updated fields.
+  /// After success, updates the local cache via [upsertFromServer].
   Future<LahanModel> update(int lahanId, {
     required String namaLahan,
     required double luasHa,
