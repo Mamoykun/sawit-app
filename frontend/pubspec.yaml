@@ -29,6 +29,8 @@ dependencies:
   # Image picker & compression (Diagnosa Visual)
   image_picker: ^1.0.7
   flutter_image_compress: ^2.3.0
+  # WebView for Midtrans Snap payment page
+  webview_flutter: ^4.7.0
 
 dev_dependencies:
   flutter_test:

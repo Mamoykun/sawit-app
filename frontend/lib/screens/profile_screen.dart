@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 import '../widgets/common_widgets.dart';
+import 'legal_screen.dart';
 import 'login_screen.dart';
+import 'subscription_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool embedded;
@@ -102,6 +104,135 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) setState(() => _passSaving = false);
     }
   }
+
+  Future<void> _confirmDeleteAccount() async {
+    final passCtrl = TextEditingController();
+    bool obscure = true;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(Radii.lg)),
+          title: Row(
+            children: [
+              const Icon(Icons.warning_rounded,
+                  color: AppColors.danger, size: 22),
+              const SizedBox(width: 8),
+              Text('Hapus Akun Permanen?',
+                  style: AppTextStyles.display(16, color: AppColors.danger)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Aksi ini akan menghapus PERMANEN:',
+                style:
+                    AppTextStyles.body(13, weight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              ..._bullet('Akun, profil, dan password Anda'),
+              ..._bullet('Semua data kebun (lahan, panen, biaya)'),
+              ..._bullet('Riwayat diagnosa dan foto yang diupload'),
+              ..._bullet('Subscription aktif (tidak ada refund)'),
+              const SizedBox(height: 12),
+              Text(
+                'Data tidak dapat dikembalikan setelah dihapus.',
+                style: AppTextStyles.body(12,
+                    color: AppColors.danger, weight: FontWeight.w600),
+              ),
+              const SizedBox(height: 16),
+              Text('Masukkan password untuk konfirmasi:',
+                  style: AppTextStyles.body(12,
+                      color: AppColors.textMid, weight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: passCtrl,
+                obscureText: obscure,
+                decoration: InputDecoration(
+                  hintText: 'Password Anda',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(Radii.md)),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 10),
+                  suffixIcon: IconButton(
+                    icon: Icon(obscure
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded),
+                    onPressed: () => setLocal(() => obscure = !obscure),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Batal')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.danger,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(Radii.md)),
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Hapus Permanen'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (passCtrl.text.isEmpty) {
+      _showSnack('Password wajib diisi untuk konfirmasi', isError: true);
+      return;
+    }
+
+    try {
+      await ApiService().deleteAccount(confirmPassword: passCtrl.text);
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (_) => false,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Akun berhasil dihapus permanen'),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack(_parseError(e), isError: true);
+    }
+  }
+
+  List<Widget> _bullet(String text) => [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Icon(Icons.fiber_manual_record,
+                    size: 6, color: AppColors.textMuted),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: Text(text,
+                      style: AppTextStyles.body(12,
+                          color: AppColors.textMid))),
+            ],
+          ),
+        ),
+      ];
 
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
@@ -268,6 +399,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 28),
 
+                  // ── Subscription ────────────────────────────────────────
+                  const _SectionHeader(title: 'Langganan'),
+                  const SizedBox(height: 14),
+                  _ProfileLink(
+                    icon: Icons.workspace_premium_rounded,
+                    label: 'Upgrade Paket',
+                    color: AppColors.gold,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const SubscriptionScreen()),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ── Legal & Privacy ─────────────────────────────────────
+                  const _SectionHeader(title: 'Privasi & Hukum'),
+                  const SizedBox(height: 14),
+                  _ProfileLink(
+                    icon: Icons.shield_outlined,
+                    label: 'Kebijakan Privasi',
+                    color: AppColors.primary,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) =>
+                              const LegalScreen(initialTab: LegalTab.privacy)),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _ProfileLink(
+                    icon: Icons.description_outlined,
+                    label: 'Syarat & Ketentuan',
+                    color: AppColors.primary,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) =>
+                              const LegalScreen(initialTab: LegalTab.terms)),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _ProfileLink(
+                    icon: Icons.delete_forever_outlined,
+                    label: 'Hapus Akun Permanen',
+                    color: AppColors.danger,
+                    destructive: true,
+                    onTap: _confirmDeleteAccount,
+                  ),
+                  const SizedBox(height: 28),
+
                   // ── Keluar ──────────────────────────────────────────────
                   Container(
                     width: double.infinity,
@@ -380,4 +562,67 @@ class _ProfileField extends StatelessWidget {
       ),
     ],
   );
+}
+
+class _ProfileLink extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool destructive;
+  final VoidCallback onTap;
+
+  const _ProfileLink({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+    this.destructive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(Radii.md),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(Radii.md),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: destructive ? AppColors.dangerTint : AppColors.surface,
+              borderRadius: BorderRadius.circular(Radii.md),
+              border: Border.all(
+                color: destructive
+                    ? AppColors.danger.withOpacity(0.2)
+                    : AppColors.border,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: color, size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(label,
+                      style: AppTextStyles.body(14,
+                          color: destructive
+                              ? AppColors.danger
+                              : AppColors.text,
+                          weight: FontWeight.w600)),
+                ),
+                Icon(Icons.chevron_right_rounded,
+                    color: destructive
+                        ? AppColors.danger.withOpacity(0.6)
+                        : AppColors.textLight),
+              ],
+            ),
+          ),
+        ),
+      );
 }

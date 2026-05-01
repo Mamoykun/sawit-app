@@ -6,6 +6,7 @@ import '../models/panen_model.dart';
 import '../models/lahan_model.dart';
 import '../models/biaya_model.dart';
 import '../models/diagnosa_model.dart';
+import '../models/payment_model.dart';
 import '../main.dart';
 import '../screens/login_screen.dart';
 
@@ -226,6 +227,21 @@ class ApiService {
     });
   }
 
+  /// Permanently delete account (PDP — right to erasure).
+  Future<void> deleteAccount({required String confirmPassword}) async {
+    await _dio.delete('/users/me', data: {
+      'confirmPassword': confirmPassword,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+  }
+
+  /// Export user data (PDP — right to data portability).
+  Future<Map<String, dynamic>> exportMyData() async {
+    final res = await _dio.get('/users/me/export');
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
   // ─── BIAYA OPERASIONAL ────────────────────────────────────────────────────
 
   Future<List<BiayaModel>> getBiaya(int lahanId, {int? tahun}) async {
@@ -314,5 +330,29 @@ class ApiService {
 
   Future<void> deleteDiagnosa(int lahanId, int diagnosaId) async {
     await _dio.delete('/lahan/$lahanId/diagnosa/$diagnosaId');
+  }
+
+  // ─── PAYMENTS / SUBSCRIPTION ──────────────────────────────────────────────
+
+  Future<PaymentModel> createPayment({
+    required String targetPaket, // 'PETANI' | 'PRO'
+    required int durationMonths,
+  }) async {
+    final res = await _dio.post('/payments/create', data: {
+      'targetPaket': targetPaket,
+      'durationMonths': durationMonths,
+    });
+    return PaymentModel.fromJson(res.data['data']);
+  }
+
+  Future<List<PaymentModel>> getMyPayments() async {
+    final res = await _dio.get('/payments/me');
+    final list = res.data['data'] as List;
+    return list.map((e) => PaymentModel.fromJson(e)).toList();
+  }
+
+  Future<PaymentModel> getPaymentByOrderId(String orderId) async {
+    final res = await _dio.get('/payments/order/$orderId');
+    return PaymentModel.fromJson(res.data['data']);
   }
 }

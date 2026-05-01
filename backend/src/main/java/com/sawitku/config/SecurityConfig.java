@@ -40,6 +40,7 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/actuator/health", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                .requestMatchers("/api/payments/notification", "/api/payments/config").permitAll()
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())

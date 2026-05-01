@@ -44,6 +44,15 @@ claude:
   model: ${CLAUDE_MODEL:claude-sonnet-4-20250514}
   max-tokens: 2048
 
+# Midtrans payment gateway
+# Sandbox: register at https://dashboard.sandbox.midtrans.com/register
+# Production: requires PT/UMKM verification
+midtrans:
+  server-key: ${MIDTRANS_SERVER_KEY:}
+  client-key: ${MIDTRANS_CLIENT_KEY:}
+  is-production: ${MIDTRANS_IS_PRODUCTION:false}
+  notification-url: ${MIDTRANS_NOTIFICATION_URL:https://your-domain.com/api/payments/notification}
+
 management:
   endpoints:
     web:
