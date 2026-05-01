@@ -1,0 +1,116 @@
+import 'dart:convert';
+import 'package:drift/drift.dart';
+import '../database/app_database.dart';
+import '../models/lahan_model.dart';
+import '../services/api_service.dart';
+
+class LahanRepository {
+  final AppDatabase _db;
+  final ApiService _api;
+
+  LahanRepository({required AppDatabase db, required ApiService api})
+      : _db = db, _api = api;
+
+  /// Returns all active lahan from SQLite cache.
+  /// Triggers background refresh from server.
+  Future<List<LahanModel>> getAll() async {
+    final rows = await (
+      _db.select(_db.lahans)
+        ..where((t) => t.isActive.equals(true))
+    ).get();
+    _refreshFromServerBackground();
+    return rows.map(_rowToModel).toList();
+  }
+
+  /// Create lahan — requires network (usiaPohon computed server-side).
+  Future<LahanModel> create({
+    required String namaLahan,
+    required double luasHa,
+    required int tahunTanam,
+    int? jumlahPohon,
+    String? lokasi,
+  }) async {
+    final result = await _api.createLahan(
+      namaLahan: namaLahan,
+      luasHa: luasHa,
+      tahunTanam: tahunTanam,
+      jumlahPohon: jumlahPohon,
+      lokasi: lokasi,
+    );
+    await upsertFromServer(result);
+    return result;
+  }
+
+  /// Update lahan — requires network.
+  Future<LahanModel> update(int lahanId, {
+    required String namaLahan,
+    required double luasHa,
+    required int tahunTanam,
+    int? jumlahPohon,
+    String? lokasi,
+  }) async {
+    final result = await _api.updateLahan(
+      lahanId,
+      namaLahan: namaLahan,
+      luasHa: luasHa,
+      tahunTanam: tahunTanam,
+      jumlahPohon: jumlahPohon,
+      lokasi: lokasi,
+    );
+    await upsertFromServer(result);
+    return result;
+  }
+
+  /// Delete lahan — removes from SQLite and enqueues server delete.
+  Future<void> delete(int lahanId) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _db.into(_db.syncQueue).insert(SyncQueueCompanion(
+      entity: Value('lahan'),
+      operation: Value('delete'),
+      payload: Value(jsonEncode({'id': lahanId})),
+      lahanId: Value(lahanId),
+      localId: Value(lahanId),
+      createdAt: Value(now),
+    ));
+    await (_db.delete(_db.lahans)..where((t) => t.id.equals(lahanId))).go();
+  }
+
+  /// Cache a server lahan into SQLite (upsert by id).
+  Future<void> upsertFromServer(LahanModel model) async {
+    await _db.into(_db.lahans).insertOnConflictUpdate(
+      LahansCompanion(
+        id: Value(model.id),
+        namaLahan: Value(model.namaLahan),
+        luasHa: Value(model.luasHa),
+        usiaPohon: Value(model.usiaPohon),
+        tahunTanam: Value(model.tahunTanam),
+        jumlahPohon: Value(model.jumlahPohon),
+        lokasi: Value(model.lokasi),
+        isActive: Value(model.isActive),
+        cachedAt: Value(DateTime.now().millisecondsSinceEpoch),
+      ),
+    );
+  }
+
+  void _refreshFromServerBackground() {
+    Future.microtask(() async {
+      try {
+        final list = await _api.getMyLahan();
+        for (final m in list) {
+          await upsertFromServer(m);
+        }
+      } catch (_) {}
+    });
+  }
+
+  LahanModel _rowToModel(Lahan row) => LahanModel(
+    id: row.id,
+    namaLahan: row.namaLahan,
+    luasHa: row.luasHa,
+    usiaPohon: row.usiaPohon,
+    tahunTanam: row.tahunTanam,
+    jumlahPohon: row.jumlahPohon,
+    lokasi: row.lokasi,
+    isActive: row.isActive,
+  );
+}
