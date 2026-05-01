@@ -31,6 +31,10 @@ dependencies:
   flutter_image_compress: ^2.3.0
   # WebView for Midtrans Snap payment page
   webview_flutter: ^4.7.0
+  # Offline mode
+  drift: ^2.18.0
+  drift_flutter: ^0.2.0
+  connectivity_plus: ^6.0.3
 
 dev_dependencies:
   flutter_test:
@@ -38,6 +42,7 @@ dev_dependencies:
   build_runner: ^2.4.7
   json_serializable: ^6.7.1
   flutter_lints: ^3.0.0
+  drift_dev: ^2.18.0
 
 flutter:
   uses-material-design: true
