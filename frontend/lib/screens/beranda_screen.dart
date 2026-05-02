@@ -128,7 +128,11 @@ class _BerandaScreenState extends State<BerandaScreen> {
         builder: (_) => RiwayatScreen(lahan: widget.lahan, lastAnalisa: null),
       ),
     );
-    if (mounted) _loadData();
+    if (mounted) {
+      _loadData();
+      // User mungkin hapus/edit dari riwayat — refresh analisa di tab lain.
+      widget.onRefreshAnalisa();
+    }
   }
 
   Future<void> _openBiaya() async {

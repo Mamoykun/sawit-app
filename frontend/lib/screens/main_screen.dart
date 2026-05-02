@@ -40,15 +40,20 @@ class _MainScreenState extends State<MainScreen> {
     try {
       final repo = PanenRepository(db: appDb, api: ApiService());
       final list = await repo.getByLahan(widget.lahan.id, limit: 1);
-      if (list.isNotEmpty && mounted) {
-        final last = list.first;
-        final penyebab = last.analisa?.penyebab.isNotEmpty == true
-            ? last.analisa!.penyebab
-            : AnalisaService.getPenyebab(last.persenKurang);
-        setState(() {
-          _lastAnalisa = HasilAnalisa(panen: last, penyebab: penyebab);
-        });
+      if (!mounted) return;
+      if (list.isEmpty) {
+        // Tidak ada panen lagi (mis. user hapus semua dari riwayat).
+        // Clear analisa supaya tab Analisa balik ke empty state.
+        setState(() => _lastAnalisa = null);
+        return;
       }
+      final last = list.first;
+      final penyebab = last.analisa?.penyebab.isNotEmpty == true
+          ? last.analisa!.penyebab
+          : AnalisaService.getPenyebab(last.persenKurang);
+      setState(() {
+        _lastAnalisa = HasilAnalisa(panen: last, penyebab: penyebab);
+      });
     } catch (_) {}
   }
 
@@ -154,7 +159,11 @@ class _MainScreenState extends State<MainScreen> {
       ),
       bottomNavigationBar: _BottomNav(
         currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+        onTap: (i) {
+          setState(() => _currentIndex = i);
+          // Saat user buka tab Analisa, pastikan datanya fresh.
+          if (i == 1) _loadLastAnalisa();
+        },
         hasAnalisa: _lastAnalisa != null,
       ),
     );
