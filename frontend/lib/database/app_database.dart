@@ -16,7 +16,13 @@ part 'app_database.g.dart';
 @DriftDatabase(tables: [Lahans, Panens, Biayas, SyncQueue])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
-      : super(executor ?? driftDatabase(name: 'sawitku_offline'));
+      : super(executor ?? driftDatabase(
+          name: 'sawitku_offline',
+          web: DriftWebOptions(
+            sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+            driftWorker: Uri.parse('drift_worker.js'),
+          ),
+        ));
 
   @override
   int get schemaVersion => 1;
