@@ -8,6 +8,9 @@ import 'beranda_screen.dart';
 import 'hasil_analisa_screen.dart';
 import 'lahan_screen.dart';
 import 'profile_screen.dart';
+import '../repositories/panen_repository.dart';
+import '../widgets/offline_banner.dart';
+import '../main.dart' show appDb;
 
 class MainScreen extends StatefulWidget {
   final LahanModel lahan;
@@ -35,7 +38,8 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _loadLastAnalisa() async {
     try {
-      final list = await ApiService().getRiwayat(widget.lahan.id, limit: 1);
+      final repo = PanenRepository(db: appDb, api: ApiService());
+      final list = await repo.getByLahan(widget.lahan.id, limit: 1);
       if (list.isNotEmpty && mounted) {
         final last = list.first;
         final penyebab = last.analisa?.penyebab.isNotEmpty == true
@@ -142,7 +146,12 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
       ),
-      body: IndexedStack(index: _currentIndex, children: screens),
+      body: Column(
+        children: [
+          const OfflineBanner(),
+          Expanded(child: IndexedStack(index: _currentIndex, children: screens)),
+        ],
+      ),
       bottomNavigationBar: _BottomNav(
         currentIndex: _currentIndex,
         onTap: (i) => setState(() => _currentIndex = i),
