@@ -297,10 +297,16 @@ class _ProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxVal = panen.targetMax * 1.35;
-    final aktualPct = (panen.tonAktual / maxVal).clamp(0.0, 1.0);
-    final minPct = panen.targetMin / maxVal;
-    final maxPct = panen.targetMax / maxVal;
+    // Guard against zero/missing targets (e.g. stale offline cache before
+    // computed targets were stored). Fall back to tonAktual-based scale so
+    // the bar still renders without NaN.
+    final rawMax = panen.targetMax * 1.35;
+    final safeMax = rawMax > 0
+        ? rawMax
+        : (panen.tonAktual > 0 ? panen.tonAktual * 1.5 : 1.0);
+    final aktualPct = (panen.tonAktual / safeMax).clamp(0.0, 1.0);
+    final minPct = (panen.targetMin / safeMax).clamp(0.0, 1.0);
+    final maxPct = (panen.targetMax / safeMax).clamp(0.0, 1.0);
     final barColor = panen.status == 'normal'
         ? AppColors.primary3
         : panen.status == 'warn'

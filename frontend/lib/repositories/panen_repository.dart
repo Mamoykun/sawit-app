@@ -44,6 +44,16 @@ class PanenRepository {
     final tempId = -(DateTime.now().millisecondsSinceEpoch * 1000 + (++_tempIdCounter % 1000));
     final now = DateTime.now().millisecondsSinceEpoch;
 
+    final target = AnalisaService.getTarget(luasHa, usiaPohon);
+    final persenKurang = tonAktual < target.mid
+        ? max(0.0, (target.mid - tonAktual) / target.mid * 100)
+        : 0.0;
+    final statusPanen = tonAktual >= target.min
+        ? 'NORMAL'
+        : persenKurang <= 20
+            ? 'WARN'
+            : 'DANGER';
+
     await _db.into(_db.panens).insert(PanensCompanion(
       id: Value(tempId),
       lahanId: Value(lahanId),
@@ -55,6 +65,11 @@ class PanenRepository {
       hargaPerTon: Value(hargaPerTon),
       luasHa: Value(luasHa),
       usiaPohon: Value(usiaPohon),
+      targetMin: Value(target.min),
+      targetMax: Value(target.max),
+      targetMid: Value(target.mid),
+      persenKurang: Value(persenKurang),
+      statusPanen: Value(statusPanen),
       cachedAt: Value(now),
     ));
 
@@ -74,16 +89,6 @@ class PanenRepository {
       localId: Value(tempId),
       createdAt: Value(now),
     ));
-
-    final target = AnalisaService.getTarget(luasHa, usiaPohon);
-    final persenKurang = tonAktual < target.mid
-        ? max(0.0, (target.mid - tonAktual) / target.mid * 100)
-        : 0.0;
-    final statusPanen = tonAktual >= target.min
-        ? 'NORMAL'
-        : persenKurang <= 20
-            ? 'WARN'
-            : 'DANGER';
 
     return PanenModel(
       id: tempId,
@@ -118,6 +123,16 @@ class PanenRepository {
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
 
+    final target = AnalisaService.getTarget(luasHa, usiaPohon);
+    final persenKurang = tonAktual < target.mid
+        ? max(0.0, (target.mid - tonAktual) / target.mid * 100)
+        : 0.0;
+    final statusPanen = tonAktual >= target.min
+        ? 'NORMAL'
+        : persenKurang <= 20
+            ? 'WARN'
+            : 'DANGER';
+
     await (_db.update(_db.panens)..where((t) => t.id.equals(panenId))).write(
       PanensCompanion(
         bulan: Value(bulan),
@@ -126,6 +141,13 @@ class PanenRepository {
         tanggal: Value(tanggal),
         tonAktual: Value(tonAktual),
         hargaPerTon: Value(hargaPerTon),
+        luasHa: Value(luasHa),
+        usiaPohon: Value(usiaPohon),
+        targetMin: Value(target.min),
+        targetMax: Value(target.max),
+        targetMid: Value(target.mid),
+        persenKurang: Value(persenKurang),
+        statusPanen: Value(statusPanen),
         cachedAt: Value(now),
       ),
     );
@@ -145,16 +167,6 @@ class PanenRepository {
       localId: Value(panenId),
       createdAt: Value(now),
     ));
-
-    final target = AnalisaService.getTarget(luasHa, usiaPohon);
-    final persenKurang = tonAktual < target.mid
-        ? max(0.0, (target.mid - tonAktual) / target.mid * 100)
-        : 0.0;
-    final statusPanen = tonAktual >= target.min
-        ? 'NORMAL'
-        : persenKurang <= 20
-            ? 'WARN'
-            : 'DANGER';
 
     return PanenModel(
       id: panenId,
