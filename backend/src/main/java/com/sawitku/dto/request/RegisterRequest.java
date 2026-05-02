@@ -5,6 +5,6 @@ import lombok.Data;
 public class RegisterRequest {
     @NotBlank @Size(max=100) public String name;
     @NotBlank @Email @Size(max=100) public String email;
-    @NotBlank @Size(min=6, max=100) public String password;
+    @NotBlank @Size(min=8, max=100) public String password;
     @Size(max=20) public String phone;
 }
