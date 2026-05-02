@@ -40,6 +40,7 @@ class ApiService {
           await prefs.remove('user_name');
           await prefs.remove('user_paket');
           await prefs.remove('selected_lahan_id');
+          await appDb.clearAllData();
           navigatorKey.currentState?.pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const LoginScreen()),
             (_) => false,
@@ -85,6 +86,8 @@ class ApiService {
     await prefs.remove('user_name');
     await prefs.remove('user_paket');
     await prefs.remove('selected_lahan_id');
+    // Wipe local SQLite cache so the next user does not see this user's data.
+    await appDb.clearAllData();
   }
 
   Future<bool> isLoggedIn() async {

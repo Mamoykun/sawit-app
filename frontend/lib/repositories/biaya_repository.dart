@@ -24,6 +24,20 @@ class BiayaRepository {
       (t) => OrderingTerm.desc(t.bulanAngka),
     ]);
     final rows = await query.get();
+
+    if (rows.isEmpty) {
+      // Cold start — try to fetch from server before returning.
+      try {
+        final list = await _api.getBiaya(lahanId, tahun: tahun);
+        for (final m in list) {
+          await upsertFromServer(m);
+        }
+        return list;
+      } catch (_) {
+        return [];
+      }
+    }
+
     _refreshFromServerBackground(lahanId, tahun: tahun);
     return rows.map(_rowToModel).toList();
   }

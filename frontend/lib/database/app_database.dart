@@ -26,4 +26,15 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   int get schemaVersion => 1;
+
+  /// Wipes all local data — used on logout to prevent the next user from
+  /// seeing the previous user's cached lahan/panen/biaya.
+  Future<void> clearAllData() async {
+    await batch((b) {
+      b.deleteAll(syncQueue);
+      b.deleteAll(panens);
+      b.deleteAll(biayas);
+      b.deleteAll(lahans);
+    });
+  }
 }

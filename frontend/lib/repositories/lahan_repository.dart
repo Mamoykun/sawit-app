@@ -11,13 +11,30 @@ class LahanRepository {
   LahanRepository({required AppDatabase db, required ApiService api})
       : _db = db, _api = api;
 
-  /// Returns all active lahan from SQLite cache.
-  /// Triggers background refresh from server.
+  /// Returns all active lahan.
+  /// If cache is empty (first login / after wipe), awaits server fetch so the
+  /// user does not see an empty list. Otherwise returns SQLite cache
+  /// immediately and triggers a background refresh.
   Future<List<LahanModel>> getAll() async {
     final rows = await (
       _db.select(_db.lahans)
         ..where((t) => t.isActive.equals(true))
     ).get();
+
+    if (rows.isEmpty) {
+      // Cold start — try to fetch from server before returning.
+      try {
+        final list = await _api.getMyLahan();
+        for (final m in list) {
+          await upsertFromServer(m);
+        }
+        return list.where((m) => m.isActive).toList();
+      } catch (_) {
+        // Offline + empty cache — return empty list, screen shows empty state.
+        return [];
+      }
+    }
+
     _refreshFromServerBackground();
     return rows.map(_rowToModel).toList();
   }

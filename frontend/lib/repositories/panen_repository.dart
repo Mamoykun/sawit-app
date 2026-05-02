@@ -25,6 +25,20 @@ class PanenRepository {
         ])
         ..limit(limit)
     ).get();
+
+    if (rows.isEmpty) {
+      // Cold start — try to fetch from server before returning.
+      try {
+        final list = await _api.getRiwayat(lahanId, limit: limit);
+        for (final m in list) {
+          await upsertFromServer(m, lahanId);
+        }
+        return list;
+      } catch (_) {
+        return [];
+      }
+    }
+
     _refreshFromServerBackground(lahanId, limit: limit);
     return rows.map(_rowToModel).toList();
   }
