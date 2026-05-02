@@ -28,6 +28,12 @@ class PanenRepository {
 
     if (rows.isEmpty) {
       // Cold start — try to fetch from server before returning.
+      // Tapi kalau queue punya pending delete untuk lahan ini, jangan
+      // cold-start fetch (akan revive item yang baru saja user hapus).
+      final pendingDeletes = await _pendingDeleteIds(lahanId);
+      if (pendingDeletes.isNotEmpty) {
+        return [];
+      }
       try {
         final list = await _api.getRiwayat(lahanId, limit: limit);
         for (final m in list) {
@@ -41,6 +47,20 @@ class PanenRepository {
 
     _refreshFromServerBackground(lahanId, limit: limit);
     return rows.map(_rowToModel).toList();
+  }
+
+  /// IDs of panen records yang punya pending delete di sync_queue.
+  /// Dipakai untuk filter background refresh supaya item yang baru di-delete
+  /// (tapi belum di-flush ke server) tidak ter-upsert balik.
+  Future<List<int>> _pendingDeleteIds(int lahanId) async {
+    final rows = await (
+      _db.select(_db.syncQueue)
+        ..where((t) =>
+            t.entity.equals('panen') &
+            t.operation.equals('delete') &
+            t.lahanId.equals(lahanId))
+    ).get();
+    return rows.map((r) => r.localId).toList();
   }
 
   Future<PanenModel> create({
@@ -245,8 +265,12 @@ class PanenRepository {
   void _refreshFromServerBackground(int lahanId, {int limit = 7}) {
     Future.microtask(() async {
       try {
+        final pendingDeletes = await _pendingDeleteIds(lahanId);
         final list = await _api.getRiwayat(lahanId, limit: limit);
         for (final m in list) {
+          // Skip item yang punya pending delete — kalau di-upsert akan
+          // muncul lagi sampai SyncService selesai flush delete-nya.
+          if (m.id != null && pendingDeletes.contains(m.id)) continue;
           await upsertFromServer(m, lahanId);
         }
       } catch (_) {}

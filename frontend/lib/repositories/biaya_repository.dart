@@ -26,7 +26,12 @@ class BiayaRepository {
     final rows = await query.get();
 
     if (rows.isEmpty) {
-      // Cold start — try to fetch from server before returning.
+      // Cold start — fetch from server before returning, KECUALI ada
+      // pending delete (artinya user baru hapus, jangan revive).
+      final pendingDeletes = await _pendingDeleteIds(lahanId);
+      if (pendingDeletes.isNotEmpty) {
+        return [];
+      }
       try {
         final list = await _api.getBiaya(lahanId, tahun: tahun);
         for (final m in list) {
@@ -40,6 +45,18 @@ class BiayaRepository {
 
     _refreshFromServerBackground(lahanId, tahun: tahun);
     return rows.map(_rowToModel).toList();
+  }
+
+  /// IDs of biaya records yang punya pending delete di sync_queue.
+  Future<List<int>> _pendingDeleteIds(int lahanId) async {
+    final rows = await (
+      _db.select(_db.syncQueue)
+        ..where((t) =>
+            t.entity.equals('biaya') &
+            t.operation.equals('delete') &
+            t.lahanId.equals(lahanId))
+    ).get();
+    return rows.map((r) => r.localId).toList();
   }
 
   Future<BiayaModel> create({
@@ -182,8 +199,11 @@ class BiayaRepository {
   void _refreshFromServerBackground(int lahanId, {int? tahun}) {
     Future.microtask(() async {
       try {
+        final pendingDeletes = await _pendingDeleteIds(lahanId);
         final list = await _api.getBiaya(lahanId, tahun: tahun);
         for (final m in list) {
+          // Skip item yang punya pending delete supaya tidak revive.
+          if (pendingDeletes.contains(m.id)) continue;
           await upsertFromServer(m);
         }
       } catch (_) {}

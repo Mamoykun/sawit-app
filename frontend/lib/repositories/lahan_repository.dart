@@ -22,7 +22,9 @@ class LahanRepository {
     ).get();
 
     if (rows.isEmpty) {
-      // Cold start — try to fetch from server before returning.
+      // Cold start — fetch from server, KECUALI ada pending delete.
+      final pendingDeletes = await _pendingDeleteIds();
+      if (pendingDeletes.isNotEmpty) return [];
       try {
         final list = await _api.getMyLahan();
         for (final m in list) {
@@ -37,6 +39,16 @@ class LahanRepository {
 
     _refreshFromServerBackground();
     return rows.map(_rowToModel).toList();
+  }
+
+  /// IDs lahan yang punya pending delete di sync_queue.
+  Future<List<int>> _pendingDeleteIds() async {
+    final rows = await (
+      _db.select(_db.syncQueue)
+        ..where((t) =>
+            t.entity.equals('lahan') & t.operation.equals('delete'))
+    ).get();
+    return rows.map((r) => r.localId).toList();
   }
 
   /// Creates a new lahan via the server (network-required).
@@ -118,8 +130,10 @@ class LahanRepository {
   void _refreshFromServerBackground() {
     Future.microtask(() async {
       try {
+        final pendingDeletes = await _pendingDeleteIds();
         final list = await _api.getMyLahan();
         for (final m in list) {
+          if (pendingDeletes.contains(m.id)) continue;
           await upsertFromServer(m);
         }
       } catch (_) {}
