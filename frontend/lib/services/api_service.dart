@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -16,11 +17,25 @@ class ApiService {
 
   late final Dio _dio;
 
+  /// Separate Dio instance used only for refresh calls to avoid interceptor recursion.
+  late final Dio _refreshDio;
+
+  /// Serialises concurrent 401 refresh attempts so only one call goes out.
+  Completer<bool>? _refreshCompleter;
+
   ApiService() {
     _dio = Dio(BaseOptions(
       baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 30),
+      headers: {'Content-Type': 'application/json'},
+    ));
+
+    // Plain Dio for the /auth/refresh endpoint — no interceptors.
+    _refreshDio = Dio(BaseOptions(
+      baseUrl: baseUrl,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 15),
       headers: {'Content-Type': 'application/json'},
     ));
 
@@ -35,12 +50,31 @@ class ApiService {
       },
       onError: (err, handler) async {
         if (err.response?.statusCode == 401) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.remove('auth_token');
-          await prefs.remove('user_name');
-          await prefs.remove('user_paket');
-          await prefs.remove('selected_lahan_id');
-          await appDb.clearAllData();
+          // Avoid retrying the refresh endpoint itself.
+          final path = err.requestOptions.path;
+          if (path.contains('/auth/')) {
+            await _clearSession();
+            handler.next(err);
+            return;
+          }
+
+          final refreshed = await _tryRefresh();
+          if (refreshed) {
+            // Retry original request with new access token.
+            try {
+              final prefs = await SharedPreferences.getInstance();
+              final newToken = prefs.getString('auth_token');
+              final opts = err.requestOptions;
+              opts.headers['Authorization'] = 'Bearer $newToken';
+              final retryRes = await _dio.fetch(opts);
+              handler.resolve(retryRes);
+              return;
+            } catch (_) {
+              // Retry failed — fall through to logout.
+            }
+          }
+
+          await _clearSession();
           navigatorKey.currentState?.pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const LoginScreen()),
             (_) => false,
@@ -51,6 +85,51 @@ class ApiService {
     ));
   }
 
+  /// Attempts to refresh the access token. Returns true if successful.
+  /// Serialises concurrent calls so only one refresh request goes out.
+  Future<bool> _tryRefresh() async {
+    if (_refreshCompleter != null) {
+      // Another request is already refreshing — wait for it.
+      return _refreshCompleter!.future;
+    }
+
+    _refreshCompleter = Completer<bool>();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final refreshToken = prefs.getString('refresh_token');
+      if (refreshToken == null) {
+        _refreshCompleter!.complete(false);
+        return false;
+      }
+
+      final res = await _refreshDio.post(
+        '/auth/refresh',
+        data: {'refreshToken': refreshToken},
+      );
+      final body = res.data['data'] as Map<String, dynamic>;
+      await prefs.setString('auth_token', body['token'] as String);
+      await prefs.setString('refresh_token', body['refreshToken'] as String);
+
+      _refreshCompleter!.complete(true);
+      return true;
+    } catch (_) {
+      _refreshCompleter!.complete(false);
+      return false;
+    } finally {
+      _refreshCompleter = null;
+    }
+  }
+
+  Future<void> _clearSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+    await prefs.remove('refresh_token');
+    await prefs.remove('user_name');
+    await prefs.remove('user_paket');
+    await prefs.remove('selected_lahan_id');
+    await appDb.clearAllData();
+  }
+
   // ─── AUTH ─────────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> login(String email, String password) async {
@@ -58,7 +137,10 @@ class ApiService {
         data: {'email': email, 'password': password});
     final body = res.data['data'] as Map<String, dynamic>;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', body['token']);
+    await prefs.setString('auth_token', body['token'] as String);
+    if (body['refreshToken'] != null) {
+      await prefs.setString('refresh_token', body['refreshToken'] as String);
+    }
     await prefs.setString('user_name', body['user']['name'] ?? '');
     await prefs.setString('user_paket', body['subscription']?['paket'] ?? 'GRATIS');
     return body;
@@ -74,25 +156,45 @@ class ApiService {
     });
     final body = res.data['data'] as Map<String, dynamic>;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', body['token']);
+    await prefs.setString('auth_token', body['token'] as String);
+    if (body['refreshToken'] != null) {
+      await prefs.setString('refresh_token', body['refreshToken'] as String);
+    }
     await prefs.setString('user_name', body['user']['name'] ?? '');
     await prefs.setString('user_paket', body['subscription']?['paket'] ?? 'GRATIS');
     return body;
   }
 
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
-    await prefs.remove('user_name');
-    await prefs.remove('user_paket');
-    await prefs.remove('selected_lahan_id');
-    // Wipe local SQLite cache so the next user does not see this user's data.
-    await appDb.clearAllData();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final refreshToken = prefs.getString('refresh_token');
+      // Revoke server-side (fire-and-forget — don't let failure block local logout).
+      await _dio.post('/auth/logout', data: refreshToken != null
+          ? {'refreshToken': refreshToken}
+          : null);
+    } catch (_) {
+      // Ignore network errors on logout.
+    }
+    await _clearSession();
   }
 
   Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('auth_token') != null;
+  }
+
+  /// Initiate forgot-password flow. Always succeeds (server returns 200 regardless).
+  Future<void> forgotPassword(String email) async {
+    await _dio.post('/auth/forgot-password', data: {'email': email});
+  }
+
+  /// Complete password reset using the token from the email link.
+  Future<void> resetPassword(String token, String newPassword) async {
+    await _dio.post('/auth/reset-password', data: {
+      'token': token,
+      'newPassword': newPassword,
+    });
   }
 
   // ─── LAHAN ────────────────────────────────────────────────────────────────

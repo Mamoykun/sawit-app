@@ -4,6 +4,10 @@ server:
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+  email:
+    provider: log    # log | smtp
+    from: noreply@sawitku.id
+    reset-url-template: "https://app.sawitku.id/reset-password?token={token}"
 
 spring:
   profiles:
@@ -37,7 +41,8 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET}
-  expiration: 86400000
+  access-expiration: 900000       # 15 minutes
+  refresh-expiration: 2592000000  # 30 days
 
 claude:
   api-key: ${CLAUDE_API_KEY:}

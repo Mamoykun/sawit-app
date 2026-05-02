@@ -41,7 +41,12 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                .requestMatchers(
+                    "/api/auth/login", "/api/auth/register",
+                    "/api/auth/refresh",
+                    "/api/auth/forgot-password", "/api/auth/reset-password",
+                    "/swagger-ui/**", "/v3/api-docs/**"
+                ).permitAll()
                 .requestMatchers("/api/payments/notification", "/api/payments/config").permitAll()
                 .requestMatchers("/actuator/health/**", "/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/actuator/**").authenticated()
