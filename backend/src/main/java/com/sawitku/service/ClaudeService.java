@@ -4,15 +4,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sawitku.dto.response.AnalisaResponse;
 import com.sawitku.entity.*;
 import com.sawitku.repository.AnalisaRepository;
+import com.sawitku.repository.BiayaRepository;
+import com.sawitku.repository.PanenRepository;
 import com.sawitku.util.AnalisaCalculator;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -24,16 +27,25 @@ public class ClaudeService {
     private final AnalisaRepository analisaRepository;
     private final SubscriptionService subscriptionService;
     private final ObjectMapper objectMapper;
+    private final PanenRepository panenRepository;
+    private final BiayaRepository biayaRepository;
+    private final WeatherService weatherService;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private RedisTemplate<String, String> redisTemplate;
 
     public ClaudeService(AnalisaRepository analisaRepository,
                          SubscriptionService subscriptionService,
-                         ObjectMapper objectMapper) {
+                         ObjectMapper objectMapper,
+                         PanenRepository panenRepository,
+                         BiayaRepository biayaRepository,
+                         WeatherService weatherService) {
         this.analisaRepository = analisaRepository;
         this.subscriptionService = subscriptionService;
         this.objectMapper = objectMapper;
+        this.panenRepository = panenRepository;
+        this.biayaRepository = biayaRepository;
+        this.weatherService = weatherService;
     }
 
     @Value("${claude.api-key}")
@@ -67,33 +79,103 @@ public class ClaudeService {
 
     private String buildPrompt(Panen panen, Lahan lahan) {
         var target = AnalisaCalculator.getTarget(lahan.getLuasHa().doubleValue(), lahan.getUsiaPohon());
-        return """
-            Kamu adalah ahli agronomi perkebunan sawit Indonesia berpengalaman 20 tahun.
+        StringBuilder sb = new StringBuilder();
 
-            Data kebun:
-            - Nama lahan: %s
-            - Luas: %s hektar
-            - Usia pohon: %d tahun
-            - Fase produksi: %s
-            - Lokasi: %s
+        sb.append("Kamu adalah ahli agronomi perkebunan sawit Indonesia berpengalaman 20 tahun.\n\n");
 
-            Data panen %s %d:
-            - Hasil aktual: %s ton
-            - Target normal: %s - %s ton
-            - Kekurangan: %s%% dari target
+        // --- Base: kebun profile ---
+        sb.append("Data kebun:\n");
+        sb.append("- Nama lahan: ").append(lahan.getNamaLahan()).append("\n");
+        sb.append("- Luas: ").append(lahan.getLuasHa()).append(" hektar\n");
+        sb.append("- Usia pohon: ").append(lahan.getUsiaPohon()).append(" tahun\n");
+        sb.append("- Fase produksi: ").append(target.fase()).append("\n");
+        sb.append("- Lokasi: ").append(lahan.getLokasi() != null ? lahan.getLokasi() : "Tidak diketahui").append("\n\n");
 
-            Analisa penyebab mengapa panen di bawah target dan berikan rekomendasi spesifik.
-            Balas HANYA dengan JSON valid (tanpa markdown/backtick):
-            {"penyebab":[{"icon":"<ICON_KEY>","title":"judul singkat","detail":"penjelasan + rekomendasi 2-3 kalimat","severity":"high|medium|low","estimasi_dampak":"X-Y%% penurunan"}],"ringkasan":"ringkasan 1 kalimat","prioritas_tindakan":"tindakan paling penting minggu ini"}
+        // --- Base: current panen ---
+        sb.append("Data panen ").append(panen.getBulan()).append(" ").append(panen.getTahun()).append(":\n");
+        sb.append("- Hasil aktual: ").append(panen.getTonAktual()).append(" ton\n");
+        sb.append("- Target normal: ").append(panen.getTargetMin()).append(" - ").append(panen.getTargetMax()).append(" ton\n");
+        sb.append("- Kekurangan: ").append(panen.getPersenKurang()).append("% dari target\n");
 
-            <ICON_KEY> harus salah satu dari: "eco" (nutrisi/pupuk/gulma), "water" (air/kekeringan/drainase), "bug" (hama/penyakit), "thermostat" (cuaca/musim), "warning" (manajemen/lainnya). JANGAN gunakan emoji.
-            """.formatted(
-                lahan.getNamaLahan(), lahan.getLuasHa(), lahan.getUsiaPohon(),
-                target.fase(), lahan.getLokasi() != null ? lahan.getLokasi() : "Tidak diketahui",
-                panen.getBulan(), panen.getTahun(),
-                panen.getTonAktual(), panen.getTargetMin(), panen.getTargetMax(),
-                panen.getPersenKurang()
-            );
+        // --- Optional: panen trend (last 6 months, skip if size < 2) ---
+        try {
+            List<Panen> riwayat = panenRepository.findByLahanIdOrderByTahunDescBulanAngkaDesc(
+                lahan.getId(), PageRequest.of(0, 6));
+            // Filter out the current panen entry itself
+            List<Panen> history = riwayat.stream()
+                .filter(p -> !p.getId().equals(panen.getId()))
+                .toList();
+            if (history.size() >= 1) {
+                sb.append("\nTren panen ").append(history.size()).append(" bulan terakhir:\n");
+                for (Panen p : history) {
+                    double aktual = p.getTonAktual().doubleValue();
+                    double minT = p.getTargetMin().doubleValue();
+                    double maxT = p.getTargetMax().doubleValue();
+                    double kurang = p.getPersenKurang() != null ? p.getPersenKurang().doubleValue() : 0;
+                    String status;
+                    if (aktual >= minT) {
+                        status = "✓";
+                    } else if (kurang <= 20) {
+                        status = "⚠";
+                    } else {
+                        status = "❌";
+                    }
+                    sb.append("- ").append(p.getBulan()).append(" ").append(p.getTahun())
+                      .append(": ").append(p.getTonAktual()).append(" ton")
+                      .append(" (target ").append(p.getTargetMin()).append("-").append(p.getTargetMax()).append(")")
+                      .append(" ").append(status).append("\n");
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Gagal memuat riwayat panen untuk prompt: {}", e.getMessage());
+        }
+
+        // --- Optional: fertilizer history (last 6 months) ---
+        try {
+            LocalDate now = LocalDate.now();
+            LocalDate since = now.minusMonths(6);
+            List<Biaya> pupuk = biayaRepository.findByLahanIdAndKategoriRecent(
+                lahan.getId(), KategoriBiaya.PUPUK, since.getYear(), since.getMonthValue());
+            if (!pupuk.isEmpty()) {
+                sb.append("\nRiwayat pemupukan ").append(Math.min(pupuk.size(), 6)).append(" bulan terakhir:\n");
+                int limit = Math.min(pupuk.size(), 6);
+                for (int i = 0; i < limit; i++) {
+                    Biaya b = pupuk.get(i);
+                    String keterangan = (b.getKeterangan() != null && !b.getKeterangan().isBlank())
+                        ? b.getKeterangan() : "Pupuk";
+                    sb.append("- ").append(b.getBulan()).append(" ").append(b.getTahun())
+                      .append(": ").append(keterangan)
+                      .append(" Rp ").append(String.format("%,.0f", b.getJumlah().doubleValue()))
+                      .append("\n");
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Gagal memuat riwayat pemupukan untuk prompt: {}", e.getMessage());
+        }
+
+        // --- Optional: weather summary ---
+        try {
+            Optional<WeatherService.WeatherSummary> weatherOpt = weatherService.getSummary(lahan.getLokasi());
+            weatherOpt.ifPresent(ws -> {
+                String lokasiDisplay = lahan.getLokasi() != null ? lahan.getLokasi() : "lokasi ini";
+                sb.append("\nCuaca 90 hari terakhir di ").append(lokasiDisplay).append(":\n");
+                sb.append("- Total curah hujan: ").append(ws.totalRainfall90d()).append(" mm\n");
+                sb.append("- Suhu rata-rata: ").append(ws.avgTemp90d()).append("°C\n");
+                sb.append("- Hari kering berturut-turut: ").append(ws.dryDayStreak()).append(" hari\n");
+                sb.append("- Hari hujan: ").append(ws.wetDays()).append(" hari\n");
+            });
+        } catch (Exception e) {
+            log.debug("Gagal memuat data cuaca untuk prompt: {}", e.getMessage());
+        }
+
+        sb.append("\n");
+        sb.append("Analisa penyebab mengapa panen di bawah target dan berikan rekomendasi spesifik.\n");
+        sb.append("Gunakan tren panen, riwayat pemupukan, dan data cuaca jika tersedia untuk meningkatkan akurasi analisa.\n");
+        sb.append("Balas HANYA dengan JSON valid (tanpa markdown/backtick):\n");
+        sb.append("{\"penyebab\":[{\"icon\":\"<ICON_KEY>\",\"title\":\"judul singkat\",\"detail\":\"penjelasan + rekomendasi 2-3 kalimat\",\"severity\":\"high|medium|low\",\"estimasi_dampak\":\"X-Y% penurunan\"}],\"ringkasan\":\"ringkasan 1 kalimat\",\"prioritas_tindakan\":\"tindakan paling penting minggu ini\"}\n\n");
+        sb.append("<ICON_KEY> harus salah satu dari: \"eco\" (nutrisi/pupuk/gulma), \"water\" (air/kekeringan/drainase), \"bug\" (hama/penyakit), \"thermostat\" (cuaca/musim), \"warning\" (manajemen/lainnya). JANGAN gunakan emoji.\n");
+
+        return sb.toString();
     }
 
     private String callClaudeApi(String prompt) {
