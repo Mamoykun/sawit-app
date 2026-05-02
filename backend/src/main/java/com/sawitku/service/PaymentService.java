@@ -6,6 +6,7 @@ import com.sawitku.dto.response.PaymentResponse;
 import com.sawitku.entity.*;
 import com.sawitku.exception.BusinessException;
 import com.sawitku.exception.ResourceNotFoundException;
+import com.sawitku.model.AuditAction;
 import com.sawitku.repository.PaymentRepository;
 import com.sawitku.repository.SubscriptionRepository;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final ObjectMapper objectMapper;
+    private final AuditService auditService;
 
     @Value("${midtrans.server-key:}")
     private String serverKey;
@@ -88,6 +90,11 @@ public class PaymentService {
             .expiredAt(LocalDateTime.now().plusHours(24))
             .build();
         paymentRepository.save(payment);
+
+        try { auditService.log(AuditAction.PAYMENT_CREATE, user.getId(), "Payment", payment.getId(),
+                Map.of("orderId", orderId, "paket", req.getTargetPaket().name(),
+                        "grossAmount", grossAmount.toString())); }
+        catch (Exception ignored) {}
 
         // Call Midtrans Snap API
         try {
@@ -201,6 +208,12 @@ public class PaymentService {
             extendSubscription(payment);
         }
         paymentRepository.save(payment);
+
+        try {
+            Long userId = payment.getUser() != null ? payment.getUser().getId() : null;
+            auditService.log(AuditAction.PAYMENT_STATUS_CHANGE, userId, "Payment", payment.getId(),
+                    Map.of("orderId", orderId, "newStatus", newStatus.name()));
+        } catch (Exception ignored) {}
     }
 
     private PaymentStatus parseStatus(String txStatus, String fraudStatus) {

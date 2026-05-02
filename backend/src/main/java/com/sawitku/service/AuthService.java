@@ -5,6 +5,7 @@ import com.sawitku.dto.response.AuthResponse;
 import com.sawitku.dto.response.TokenResponse;
 import com.sawitku.entity.*;
 import com.sawitku.exception.BusinessException;
+import com.sawitku.model.AuditAction;
 import com.sawitku.repository.*;
 import com.sawitku.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +42,7 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authManager;
     private final EmailService emailService;
+    private final AuditService auditService;
 
     @Value("${jwt.refresh-expiration}")
     private long refreshExpirationMs;
@@ -68,17 +71,32 @@ public class AuthService {
         String accessToken = jwtUtil.generateAccessToken(user);
         String rawRefresh = jwtUtil.generateRefreshToken(user);
         persistRefreshToken(user, rawRefresh, null, null);
+
+        try { auditService.logAuthWithUserId(AuditAction.AUTH_REGISTER, user.getId(), user.getEmail(), true, null); }
+        catch (Exception ignored) {}
+
         return buildAuthResponse(accessToken, rawRefresh, user, sub);
     }
 
     @Transactional
     public AuthResponse login(LoginRequest req, String userAgent, String ipAddress) {
-        authManager.authenticate(new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword()));
+        try {
+            authManager.authenticate(new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword()));
+        } catch (Exception authEx) {
+            try { auditService.logAuth(AuditAction.AUTH_LOGIN_FAILED, req.getEmail(), false,
+                    Map.of("reason", "wrong_password")); }
+            catch (Exception ignored) {}
+            throw authEx;
+        }
         User user = userRepository.findByEmail(req.getEmail()).orElseThrow();
         Subscription sub = subscriptionRepository.findByUserId(user.getId()).orElseThrow();
         String accessToken = jwtUtil.generateAccessToken(user);
         String rawRefresh = jwtUtil.generateRefreshToken(user);
         persistRefreshToken(user, rawRefresh, userAgent, ipAddress);
+
+        try { auditService.logAuthWithUserId(AuditAction.AUTH_LOGIN_SUCCESS, user.getId(), user.getEmail(), true, null); }
+        catch (Exception ignored) {}
+
         return buildAuthResponse(accessToken, rawRefresh, user, sub);
     }
 
@@ -140,6 +158,8 @@ public class AuthService {
         } else {
             refreshTokenRepository.deleteByUserId(user.getId());
         }
+        try { auditService.logAuthWithUserId(AuditAction.AUTH_LOGOUT, user.getId(), user.getEmail(), true, null); }
+        catch (Exception ignored) {}
     }
 
     // ── Password Reset ────────────────────────────────────────────────────────
@@ -150,6 +170,10 @@ public class AuthService {
      */
     @Transactional
     public void forgotPassword(String email) {
+        // Log regardless of whether email exists — useful for detecting enumeration attacks
+        try { auditService.logAuth(AuditAction.AUTH_FORGOT_PASSWORD, email, true, null); }
+        catch (Exception ignored) {}
+
         userRepository.findByEmail(email).ifPresent(user -> {
             // Generate 64-byte random token, URL-safe base64 encoded
             byte[] bytes = new byte[48]; // 48 bytes → 64 base64 chars
@@ -201,6 +225,9 @@ public class AuthService {
 
         // Force re-login on all devices
         refreshTokenRepository.deleteByUserId(user.getId());
+
+        try { auditService.logAuthWithUserId(AuditAction.AUTH_RESET_PASSWORD, user.getId(), user.getEmail(), true, null); }
+        catch (Exception ignored) {}
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

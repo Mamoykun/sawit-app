@@ -5,6 +5,7 @@ import com.sawitku.dto.response.BiayaResponse;
 import com.sawitku.entity.Biaya;
 import com.sawitku.entity.Lahan;
 import com.sawitku.exception.ResourceNotFoundException;
+import com.sawitku.model.AuditAction;
 import com.sawitku.repository.BiayaRepository;
 import com.sawitku.repository.LahanRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +22,7 @@ public class BiayaService {
 
     private final BiayaRepository biayaRepository;
     private final LahanRepository lahanRepository;
+    private final AuditService auditService;
 
     @Transactional
     public BiayaResponse createBiaya(Long userId, Long lahanId, BiayaRequest req) {
@@ -37,6 +40,9 @@ public class BiayaService {
             .createdAt(LocalDateTime.now())
             .build();
         biayaRepository.save(biaya);
+        try { auditService.log(AuditAction.BIAYA_CREATE, userId, "Biaya", biaya.getId(),
+                Map.of("lahanId", lahanId)); }
+        catch (Exception ignored) {}
         return toResponse(biaya);
     }
 
@@ -64,6 +70,9 @@ public class BiayaService {
         biaya.setJumlah(req.getJumlah());
         biaya.setKeterangan(req.getKeterangan());
         biayaRepository.save(biaya);
+        try { auditService.log(AuditAction.BIAYA_UPDATE, userId, "Biaya", biayaId,
+                Map.of("fields_changed", List.of("bulan","tahun","kategori","jumlah","keterangan"), "lahanId", lahanId)); }
+        catch (Exception ignored) {}
         return toResponse(biaya);
     }
 
@@ -74,6 +83,9 @@ public class BiayaService {
         Biaya biaya = biayaRepository.findByIdAndLahanId(biayaId, lahanId)
             .orElseThrow(() -> new ResourceNotFoundException("Biaya tidak ditemukan"));
         biayaRepository.delete(biaya);
+        try { auditService.log(AuditAction.BIAYA_DELETE, userId, "Biaya", biayaId,
+                Map.of("lahanId", lahanId)); }
+        catch (Exception ignored) {}
     }
 
     public BigDecimal getTotalBiayaPeriode(Long lahanId, Integer tahun, Integer bulanAngka) {

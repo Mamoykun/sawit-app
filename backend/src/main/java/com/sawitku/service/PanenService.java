@@ -6,6 +6,7 @@ import com.sawitku.dto.request.PanenRequest;
 import com.sawitku.dto.response.*;
 import com.sawitku.entity.*;
 import com.sawitku.exception.*;
+import com.sawitku.model.AuditAction;
 import com.sawitku.repository.*;
 import com.sawitku.util.AnalisaCalculator;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +29,7 @@ public class PanenService {
     private final AnalisaRepository analisaRepository;
     private final ClaudeService claudeService;
     private final ObjectMapper objectMapper;
+    private final AuditService auditService;
 
     @Transactional
     public PanenResponse inputPanen(Long userId, Long lahanId, PanenRequest req) {
@@ -45,6 +48,10 @@ public class PanenService {
             .hargaPerTon(req.getHargaPerTon() != null ? req.getHargaPerTon() : BigDecimal.valueOf(2400000))
             .catatan(req.getCatatan()).createdAt(LocalDateTime.now()).build();
         panenRepository.save(panen);
+
+        try { auditService.log(AuditAction.PANEN_CREATE, userId, "Panen", panen.getId(),
+                Map.of("lahanId", lahanId)); }
+        catch (Exception ignored) {}
 
         // Run after commit so the panen row is visible before the async FK write
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -90,6 +97,9 @@ public class PanenService {
         analisaRepository.findByPanenId(panenId).ifPresent(analisaRepository::delete);
         analisaRepository.flush();
         panenRepository.delete(panen);
+        try { auditService.log(AuditAction.PANEN_DELETE, userId, "Panen", panenId,
+                Map.of("lahanId", lahanId)); }
+        catch (Exception ignored) {}
     }
 
     @Transactional
@@ -115,6 +125,10 @@ public class PanenService {
         panen.setPersenKurang(persen);
         if (req.getHargaPerTon() != null) panen.setHargaPerTon(req.getHargaPerTon());
         panenRepository.save(panen);
+
+        try { auditService.log(AuditAction.PANEN_UPDATE, userId, "Panen", panenId,
+                Map.of("fields_changed", List.of("bulan","tahun","tonAktual","hargaPerTon"), "lahanId", lahanId)); }
+        catch (Exception ignored) {}
 
         // Re-analyze after update
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

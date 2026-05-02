@@ -5,11 +5,13 @@ import com.sawitku.dto.request.UpdateProfileRequest;
 import com.sawitku.dto.response.AuthResponse;
 import com.sawitku.entity.User;
 import com.sawitku.exception.BusinessException;
+import com.sawitku.model.AuditAction;
 import com.sawitku.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +24,7 @@ public class UserService {
     private final com.sawitku.repository.BiayaRepository biayaRepository;
     private final com.sawitku.repository.DiagnosaRepository diagnosaRepository;
     private final com.sawitku.repository.SubscriptionRepository subscriptionRepository;
+    private final AuditService auditService;
 
     public AuthResponse.UserInfo getProfile(User user) {
         return toUserInfo(user);
@@ -32,6 +35,9 @@ public class UserService {
         user.setName(req.getName());
         user.setPhone(req.getPhone() != null && !req.getPhone().isBlank() ? req.getPhone() : null);
         userRepository.save(user);
+        try { auditService.log(AuditAction.PROFILE_UPDATE, user.getId(), "User", user.getId(),
+                Map.of("fields_changed", java.util.List.of("name","phone"))); }
+        catch (Exception ignored) {}
         return toUserInfo(user);
     }
 
@@ -41,6 +47,8 @@ public class UserService {
             throw new BusinessException("Password saat ini tidak sesuai", "WRONG_PASSWORD");
         user.setPassword(passwordEncoder.encode(req.getNewPassword()));
         userRepository.save(user);
+        try { auditService.log(AuditAction.PROFILE_PASSWORD_CHANGE, user.getId(), "User", user.getId(), null); }
+        catch (Exception ignored) {}
     }
 
     /// Permanently delete user account and all associated data.
@@ -56,6 +64,10 @@ public class UserService {
         }
 
         Long userId = user.getId();
+        String userEmail = user.getEmail();
+        // Log before deletion so user context is still available
+        try { auditService.logAuthWithUserId(AuditAction.PROFILE_DELETE_ACCOUNT, userId, userEmail, true, null); }
+        catch (Exception ignored) {}
         // Delete owned lahan (cascades to panen/biaya/diagnosa via DB ON DELETE CASCADE)
         lahanRepository.findByUserIdAndIsActiveTrue(userId)
             .forEach(l -> lahanRepository.delete(l));

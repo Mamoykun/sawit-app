@@ -4,6 +4,7 @@ import com.sawitku.dto.response.DiagnosaResponse;
 import com.sawitku.entity.*;
 import com.sawitku.exception.BusinessException;
 import com.sawitku.exception.ResourceNotFoundException;
+import com.sawitku.model.AuditAction;
 import com.sawitku.repository.DiagnosaRepository;
 import com.sawitku.repository.LahanRepository;
 import com.sawitku.util.ImageValidator;
@@ -16,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -32,6 +34,7 @@ public class DiagnosaService {
     private final LahanRepository lahanRepository;
     private final ClaudeService claudeService;
     private final SubscriptionService subscriptionService;
+    private final AuditService auditService;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private RedisTemplate<String, String> redisTemplate;
@@ -109,6 +112,10 @@ public class DiagnosaService {
             .createdAt(LocalDateTime.now())
             .build();
         diagnosaRepository.save(diagnosa);
+
+        try { auditService.log(AuditAction.DIAGNOSA_CREATE, userId, "Diagnosa", diagnosa.getId(),
+                Map.of("lahanId", lahanId, "jenis", jenis.name(), "isFallback", result.isFallback())); }
+        catch (Exception ignored) {}
 
         // Increment counter hanya kalau bukan fallback (Claude error)
         if (!result.isFallback()) {
@@ -189,6 +196,9 @@ public class DiagnosaService {
         Diagnosa d = diagnosaRepository.findByIdAndLahanId(diagnosaId, lahanId)
             .orElseThrow(() -> new ResourceNotFoundException("Diagnosa tidak ditemukan"));
         diagnosaRepository.delete(d);
+        try { auditService.log(AuditAction.DIAGNOSA_DELETE, userId, "Diagnosa", diagnosaId,
+                Map.of("lahanId", lahanId)); }
+        catch (Exception ignored) {}
     }
 
     private DiagnosaResponse toResponse(Diagnosa d, boolean includeImage) {
