@@ -54,64 +54,68 @@ class HasilAnalisaScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Headline: ikon + verdict besar
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Hasil Panen Anda',
-                            style: AppTextStyles.body(12, color: AppColors.textMuted,
-                                weight: FontWeight.w500)),
-                        const SizedBox(height: 4),
-                        RichText(
-                          text: TextSpan(children: [
-                            TextSpan(
-                              text: '${p.tonAktual}',
-                              style: AppTextStyles.display(40, color: AppColors.text),
-                            ),
-                            TextSpan(
-                              text: ' ton',
-                              style: AppTextStyles.body(16, color: AppColors.textMid),
-                            ),
-                          ]),
-                        ),
-                      ],
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: statusCfg.color,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(statusCfg.icon, color: Colors.white, size: 26),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('Target Normal',
-                            style: AppTextStyles.body(12, color: AppColors.textMuted,
-                                weight: FontWeight.w500)),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${p.targetMin.toStringAsFixed(1)}–${p.targetMax.toStringAsFixed(1)} ton',
-                          style: AppTextStyles.display(18, color: AppColors.textMid),
-                        ),
-                      ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            statusCfg.title,
+                            style: AppTextStyles.display(18, color: statusCfg.color),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            statusCfg.subtitle,
+                            style: AppTextStyles.body(12, color: AppColors.textMid),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 20),
+
+                // Angka utama: ton aktual besar di tengah
+                Center(
+                  child: RichText(
+                    textAlign: TextAlign.center,
+                    text: TextSpan(children: [
+                      TextSpan(
+                        text: p.tonAktual.toStringAsFixed(1),
+                        style: AppTextStyles.display(48, color: AppColors.text),
+                      ),
+                      TextSpan(
+                        text: ' ton',
+                        style: AppTextStyles.body(18, color: AppColors.textMid),
+                      ),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                // Sub-info: target range, friendly format
+                Center(
+                  child: Text(
+                    'Target normal: ${p.targetMin.toStringAsFixed(1)}–${p.targetMax.toStringAsFixed(1)} ton',
+                    style: AppTextStyles.body(13, color: AppColors.textMid),
+                  ),
                 ),
                 const SizedBox(height: 18),
 
                 // Progress bar
                 _ProgressBar(panen: p),
-                const SizedBox(height: 16),
-
-                // Status chip
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: statusCfg.color,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    statusCfg.label,
-                    style: AppTextStyles.body(13, color: Colors.white, weight: FontWeight.w700),
-                  ),
-                ),
               ],
             ),
           ),
@@ -277,16 +281,38 @@ class HasilAnalisaScreen extends StatelessWidget {
     );
   }
 
-  ({Color color, Color bg, String label}) _statusConfig(String status) {
+  ({Color color, Color bg, IconData icon, String title, String subtitle})
+      _statusConfig(String status) {
+    final p = hasil!.panen;
+    // Selisih ton dari target minimum — positif kalau di bawah min.
+    final tonKurang = (p.targetMin - p.tonAktual).clamp(0.0, double.infinity);
     switch (status) {
       case 'normal':
-        return (color: AppColors.primary, bg: AppColors.primaryTint, label: 'Panen Normal');
+        return (
+          color: AppColors.primary,
+          bg: AppColors.primaryTint,
+          icon: Icons.check_rounded,
+          title: 'Panen Bagus',
+          subtitle: 'Hasil sesuai target produksi normal',
+        );
       case 'warn':
-        return (color: AppColors.warn, bg: AppColors.warnTint,
-            label: 'Kurang ${hasil!.panen.persenKurang.toStringAsFixed(0)}% dari Target');
+        return (
+          color: AppColors.warn,
+          bg: AppColors.warnTint,
+          icon: Icons.trending_down_rounded,
+          title: 'Sedikit di Bawah Target',
+          subtitle: 'Kurang ${tonKurang.toStringAsFixed(1)} ton '
+              '(${p.persenKurang.toStringAsFixed(0)}%) dari target minimum',
+        );
       default:
-        return (color: AppColors.danger, bg: AppColors.dangerTint,
-            label: 'Defisit ${hasil!.panen.persenKurang.toStringAsFixed(0)}% — Perlu Tindakan');
+        return (
+          color: AppColors.danger,
+          bg: AppColors.dangerTint,
+          icon: Icons.warning_rounded,
+          title: 'Perlu Tindakan',
+          subtitle: 'Kurang ${tonKurang.toStringAsFixed(1)} ton '
+              '(${p.persenKurang.toStringAsFixed(0)}%) — cek penyebab di bawah',
+        );
     }
   }
 }
