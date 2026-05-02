@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:drift/drift.dart';
 import '../database/app_database.dart';
 import '../models/panen_model.dart';
+import '../services/analisa_service.dart';
 import '../services/api_service.dart';
 
 class PanenRepository {
@@ -71,20 +73,32 @@ class PanenRepository {
       createdAt: Value(now),
     ));
 
+    final target = AnalisaService.getTarget(luasHa, usiaPohon);
+    final persenKurang = tonAktual < target.mid
+        ? max(0.0, (target.mid - tonAktual) / target.mid * 100)
+        : 0.0;
+    final statusPanen = tonAktual >= target.min
+        ? 'NORMAL'
+        : persenKurang <= 20
+            ? 'WARN'
+            : 'DANGER';
+
     return PanenModel(
       id: tempId,
       lahanId: lahanId,
       luasHa: luasHa,
       usiaTahun: usiaPohon,
       tonAktual: tonAktual,
-      targetMin: 0,
-      targetMax: 0,
-      targetMid: 0,
+      targetMin: target.min,
+      targetMax: target.max,
+      targetMid: target.mid,
       bulan: bulan,
       tahun: tahun,
       bulanAngka: bulanAngka,
       tanggal: tanggal,
       hargaPerTon: hargaPerTon,
+      persenKurang: persenKurang,
+      statusPanen: statusPanen,
     );
   }
 

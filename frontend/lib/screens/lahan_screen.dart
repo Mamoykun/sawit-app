@@ -18,6 +18,7 @@ class LahanScreen extends StatefulWidget {
 }
 
 class _LahanScreenState extends State<LahanScreen> {
+  late final LahanRepository _lahanRepo;
   List<LahanModel>? _lahanList;
   bool _loading = true;
   String? _error;
@@ -27,6 +28,7 @@ class _LahanScreenState extends State<LahanScreen> {
   @override
   void initState() {
     super.initState();
+    _lahanRepo = LahanRepository(db: appDb, api: ApiService());
     _loadData();
   }
 
@@ -36,7 +38,7 @@ class _LahanScreenState extends State<LahanScreen> {
       final prefs = await SharedPreferences.getInstance();
       _userName = prefs.getString('user_name') ?? '';
       _userPaket = prefs.getString('user_paket') ?? 'GRATIS';
-      final list = await LahanRepository(db: appDb, api: ApiService()).getAll();
+      final list = await _lahanRepo.getAll();
       setState(() { _lahanList = list; _loading = false; });
     } catch (e) {
       setState(() {
@@ -408,6 +410,7 @@ class LahanFormScreen extends StatefulWidget {
 }
 
 class _LahanFormScreenState extends State<LahanFormScreen> {
+  late final LahanRepository _lahanRepo;
   final _namaCtrl = TextEditingController();
   final _luasCtrl = TextEditingController();
   final _tahunCtrl = TextEditingController();
@@ -429,6 +432,7 @@ class _LahanFormScreenState extends State<LahanFormScreen> {
   @override
   void initState() {
     super.initState();
+    _lahanRepo = LahanRepository(db: appDb, api: ApiService());
     if (_isEdit) {
       final e = widget.existing!;
       _namaCtrl.text = e.namaLahan;
@@ -455,13 +459,12 @@ class _LahanFormScreenState extends State<LahanFormScreen> {
 
     setState(() { _loading = true; _error = null; });
     try {
-      final repo = LahanRepository(db: appDb, api: ApiService());
       final jumlahPohon = int.tryParse(_pohonCtrl.text);
       final lokasi = _lokasiCtrl.text.trim();
 
       LahanModel result;
       if (_isEdit) {
-        result = await repo.update(
+        result = await _lahanRepo.update(
           widget.existing!.id,
           namaLahan: nama,
           luasHa: luas,
@@ -470,7 +473,7 @@ class _LahanFormScreenState extends State<LahanFormScreen> {
           lokasi: lokasi.isEmpty ? null : lokasi,
         );
       } else {
-        result = await repo.create(
+        result = await _lahanRepo.create(
           namaLahan: nama,
           luasHa: luas,
           tahunTanam: tahun,

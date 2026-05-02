@@ -19,6 +19,7 @@ class BiayaScreen extends StatefulWidget {
 }
 
 class _BiayaScreenState extends State<BiayaScreen> {
+  late final BiayaRepository _biayaRepo;
   List<BiayaModel>? _data;
   bool _loading = true;
   int _selectedYear = DateTime.now().year;
@@ -26,13 +27,14 @@ class _BiayaScreenState extends State<BiayaScreen> {
   @override
   void initState() {
     super.initState();
+    _biayaRepo = BiayaRepository(db: appDb, api: ApiService());
     _loadData();
   }
 
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      final list = await BiayaRepository(db: appDb, api: ApiService()).getByLahan(widget.lahan.id, tahun: _selectedYear);
+      final list = await _biayaRepo.getByLahan(widget.lahan.id, tahun: _selectedYear);
       if (mounted) setState(() { _data = list; _loading = false; });
     } catch (_) {
       if (mounted) {
@@ -73,7 +75,7 @@ class _BiayaScreenState extends State<BiayaScreen> {
     );
     if (ok != true) return;
     try {
-      await BiayaRepository(db: appDb, api: ApiService()).delete(lahanId: widget.lahan.id, biayaId: b.id);
+      await _biayaRepo.delete(lahanId: widget.lahan.id, biayaId: b.id);
       _loadData();
     } catch (_) {
       if (mounted) {
@@ -474,6 +476,7 @@ class _BiayaForm extends StatefulWidget {
 }
 
 class _BiayaFormState extends State<_BiayaForm> {
+  late final BiayaRepository _biayaRepo;
   late KategoriBiaya _kategori;
   late DateTime _date;
   final _jumlahCtrl = TextEditingController();
@@ -488,6 +491,7 @@ class _BiayaFormState extends State<_BiayaForm> {
   @override
   void initState() {
     super.initState();
+    _biayaRepo = BiayaRepository(db: appDb, api: ApiService());
     final e = widget.edit;
     _kategori = e?.kategori ?? KategoriBiaya.pupuk;
     _date = e != null
@@ -528,11 +532,10 @@ class _BiayaFormState extends State<_BiayaForm> {
     }
     setState(() => _saving = true);
     try {
-      final repo = BiayaRepository(db: appDb, api: ApiService());
       final keterangan = _keteranganCtrl.text.trim().isEmpty
           ? null : _keteranganCtrl.text.trim();
       if (widget.edit == null) {
-        await repo.create(
+        await _biayaRepo.create(
           lahanId: widget.lahan.id,
           bulan: _bulanNames[_date.month - 1],
           tahun: _date.year,
@@ -542,7 +545,7 @@ class _BiayaFormState extends State<_BiayaForm> {
           keterangan: keterangan,
         );
       } else {
-        await repo.update(
+        await _biayaRepo.update(
           lahanId: widget.lahan.id,
           biayaId: widget.edit!.id,
           bulan: _bulanNames[_date.month - 1],

@@ -90,6 +90,7 @@ class RiwayatScreen extends StatefulWidget {
 }
 
 class _RiwayatScreenState extends State<RiwayatScreen> {
+  late final PanenRepository _panenRepo;
   List<PanenModel>? _data;
   bool _loading = true;
   bool _exporting = false;
@@ -97,6 +98,7 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
   @override
   void initState() {
     super.initState();
+    _panenRepo = PanenRepository(db: appDb, api: ApiService());
     _loadData();
   }
 
@@ -112,8 +114,7 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      final repo = PanenRepository(db: appDb, api: ApiService());
-      final list = await repo.getByLahan(widget.lahan.id, limit: 50);
+      final list = await _panenRepo.getByLahan(widget.lahan.id, limit: 50);
       if (mounted) {
         setState(() {
           _data = list;
@@ -139,7 +140,7 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
     setState(() => _exporting = true);
     try {
       // Fetch all data for a complete report (screen only loads 50)
-      final allData = await PanenRepository(db: appDb, api: ApiService()).getByLahan(widget.lahan.id, limit: 999);
+      final allData = await _panenRepo.getByLahan(widget.lahan.id, limit: 999);
       await PdfService.exportLaporan(lahan: widget.lahan, data: allData);
     } catch (e) {
       if (mounted) {
@@ -742,7 +743,14 @@ class _PanenDetailSheet extends StatefulWidget {
 }
 
 class _PanenDetailSheetState extends State<_PanenDetailSheet> {
+  late final PanenRepository _panenRepo;
   bool _deleting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _panenRepo = PanenRepository(db: appDb, api: ApiService());
+  }
 
   Future<void> _confirmDelete() async {
     final confirm = await showDialog<bool>(
@@ -770,8 +778,7 @@ class _PanenDetailSheetState extends State<_PanenDetailSheet> {
 
     setState(() => _deleting = true);
     try {
-      final repo = PanenRepository(db: appDb, api: ApiService());
-      await repo.delete(lahanId: widget.panen.lahanId!, panenId: widget.panen.id!);
+      await _panenRepo.delete(lahanId: widget.panen.lahanId!, panenId: widget.panen.id!);
       if (mounted) {
         Navigator.pop(context);
         widget.onDeleted();
@@ -1149,6 +1156,7 @@ class _EditPanenSheet extends StatefulWidget {
 }
 
 class _EditPanenSheetState extends State<_EditPanenSheet> {
+  late final PanenRepository _panenRepo;
   late TextEditingController _tonCtrl;
   late TextEditingController _hargaCtrl;
   late DateTime _selectedDate;
@@ -1162,6 +1170,7 @@ class _EditPanenSheetState extends State<_EditPanenSheet> {
   @override
   void initState() {
     super.initState();
+    _panenRepo = PanenRepository(db: appDb, api: ApiService());
     _tonCtrl = TextEditingController(
         text: widget.panen.tonAktual.toStringAsFixed(2));
     _hargaCtrl = TextEditingController(
@@ -1199,8 +1208,7 @@ class _EditPanenSheetState extends State<_EditPanenSheet> {
 
     setState(() => _loading = true);
     try {
-      final repo = PanenRepository(db: appDb, api: ApiService());
-      await repo.update(
+      await _panenRepo.update(
         lahanId: widget.panen.lahanId!,
         panenId: widget.panen.id!,
         luasHa: widget.panen.luasHa,

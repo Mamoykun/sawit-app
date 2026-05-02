@@ -27,6 +27,7 @@ class InputPanenScreen extends StatefulWidget {
 }
 
 class _InputPanenScreenState extends State<InputPanenScreen> {
+  late final PanenRepository _panenRepo;
   final _tonController = TextEditingController();
   final _hargaController = TextEditingController(text: '2400000');
   bool _loading = false;
@@ -46,6 +47,7 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
   @override
   void initState() {
     super.initState();
+    _panenRepo = PanenRepository(db: appDb, api: ApiService());
     _selectedDate = DateTime.now();
   }
 
@@ -172,8 +174,7 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
       _loadingLabel = 'Menyimpan panen...';
     });
     try {
-      final repo = PanenRepository(db: appDb, api: ApiService());
-      final result = await repo.create(
+      final result = await _panenRepo.create(
         lahanId: widget.lahan.id,
         luasHa: widget.lahan.luasHa,
         usiaPohon: widget.lahan.usiaPohon,

@@ -34,6 +34,7 @@ class BerandaScreen extends StatefulWidget {
 }
 
 class _BerandaScreenState extends State<BerandaScreen> {
+  late final PanenRepository _panenRepo;
   List<PanenModel>? _history;
   bool _loading = true;
   bool _showHint = false;
@@ -41,6 +42,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
   @override
   void initState() {
     super.initState();
+    _panenRepo = PanenRepository(db: appDb, api: ApiService());
     _loadData();
     _checkFirstVisitHint();
   }
@@ -68,8 +70,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      final repo = PanenRepository(db: appDb, api: ApiService());
-      final list = await repo.getByLahan(widget.lahan.id, limit: 8);
+      final list = await _panenRepo.getByLahan(widget.lahan.id, limit: 8);
       setState(() { _history = list; _loading = false; });
     } catch (_) {
       setState(() { _history = []; _loading = false; });
