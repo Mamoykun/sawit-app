@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import '../main.dart';
 
 class OfflineBanner extends StatefulWidget {
   const OfflineBanner({super.key});
@@ -22,7 +21,6 @@ class _OfflineBannerState extends State<OfflineBanner> {
     _sub = Connectivity().onConnectivityChanged.listen((results) {
       final offline = results.every((r) => r == ConnectivityResult.none);
       if (mounted) setState(() => _isOffline = offline);
-      if (!offline) syncService.flush();
     });
   }
 
