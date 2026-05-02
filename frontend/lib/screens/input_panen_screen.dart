@@ -8,6 +8,8 @@ import '../models/lahan_model.dart';
 import '../models/diagnosa_model.dart';
 import '../services/api_service.dart';
 import '../services/analisa_service.dart';
+import '../repositories/panen_repository.dart';
+import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
 
 class InputPanenScreen extends StatefulWidget {
@@ -170,8 +172,11 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
       _loadingLabel = 'Menyimpan panen...';
     });
     try {
-      final result = await ApiService().inputPanen(
-        widget.lahan.id,
+      final repo = PanenRepository(db: appDb, api: ApiService());
+      final result = await repo.create(
+        lahanId: widget.lahan.id,
+        luasHa: widget.lahan.luasHa,
+        usiaPohon: widget.lahan.usiaPohon,
         bulan: _bulanNames[_selectedDate.month - 1],
         tahun: _selectedDate.year,
         bulanAngka: _selectedDate.month,
