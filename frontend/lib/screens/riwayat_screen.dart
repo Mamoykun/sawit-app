@@ -4,6 +4,8 @@ import '../models/panen_model.dart';
 import '../models/lahan_model.dart';
 import '../services/api_service.dart';
 import '../services/pdf_service.dart';
+import '../repositories/panen_repository.dart';
+import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
 import 'biaya_screen.dart';
 
@@ -110,7 +112,8 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      final list = await ApiService().getRiwayat(widget.lahan.id, limit: 20);
+      final repo = PanenRepository(db: appDb, api: ApiService());
+      final list = await repo.getByLahan(widget.lahan.id, limit: 50);
       if (mounted) {
         setState(() {
           _data = list;
@@ -135,8 +138,8 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
     if (_data == null || _data!.isEmpty) return;
     setState(() => _exporting = true);
     try {
-      // Fetch all data for a complete report (screen only loads 20)
-      final allData = await ApiService().getRiwayat(widget.lahan.id, limit: 999);
+      // Fetch all data for a complete report (screen only loads 50)
+      final allData = await PanenRepository(db: appDb, api: ApiService()).getByLahan(widget.lahan.id, limit: 999);
       await PdfService.exportLaporan(lahan: widget.lahan, data: allData);
     } catch (e) {
       if (mounted) {
@@ -767,7 +770,8 @@ class _PanenDetailSheetState extends State<_PanenDetailSheet> {
 
     setState(() => _deleting = true);
     try {
-      await ApiService().deletePanen(widget.panen.lahanId!, widget.panen.id!);
+      final repo = PanenRepository(db: appDb, api: ApiService());
+      await repo.delete(lahanId: widget.panen.lahanId!, panenId: widget.panen.id!);
       if (mounted) {
         Navigator.pop(context);
         widget.onDeleted();
@@ -1195,9 +1199,12 @@ class _EditPanenSheetState extends State<_EditPanenSheet> {
 
     setState(() => _loading = true);
     try {
-      await ApiService().updatePanen(
-        widget.panen.lahanId!,
-        widget.panen.id!,
+      final repo = PanenRepository(db: appDb, api: ApiService());
+      await repo.update(
+        lahanId: widget.panen.lahanId!,
+        panenId: widget.panen.id!,
+        luasHa: widget.panen.luasHa,
+        usiaPohon: widget.panen.usiaTahun,
         bulan: _bulanNames[_selectedDate.month - 1],
         tahun: _selectedDate.year,
         bulanAngka: _selectedDate.month,
