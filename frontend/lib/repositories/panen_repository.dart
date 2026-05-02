@@ -6,6 +6,8 @@ import '../models/panen_model.dart';
 import '../services/analisa_service.dart';
 import '../services/api_service.dart';
 
+int _tempIdCounter = 0;
+
 class PanenRepository {
   final AppDatabase _db;
   final ApiService _api;
@@ -39,7 +41,7 @@ class PanenRepository {
     double hargaPerTon = 2400000,
     String? catatan,
   }) async {
-    final tempId = -DateTime.now().millisecondsSinceEpoch;
+    final tempId = -(DateTime.now().millisecondsSinceEpoch * 1000 + (++_tempIdCounter % 1000));
     final now = DateTime.now().millisecondsSinceEpoch;
 
     await _db.into(_db.panens).insert(PanensCompanion(
@@ -144,20 +146,32 @@ class PanenRepository {
       createdAt: Value(now),
     ));
 
+    final target = AnalisaService.getTarget(luasHa, usiaPohon);
+    final persenKurang = tonAktual < target.mid
+        ? max(0.0, (target.mid - tonAktual) / target.mid * 100)
+        : 0.0;
+    final statusPanen = tonAktual >= target.min
+        ? 'NORMAL'
+        : persenKurang <= 20
+            ? 'WARN'
+            : 'DANGER';
+
     return PanenModel(
       id: panenId,
       lahanId: lahanId,
       luasHa: luasHa,
       usiaTahun: usiaPohon,
       tonAktual: tonAktual,
-      targetMin: 0,
-      targetMax: 0,
-      targetMid: 0,
+      targetMin: target.min,
+      targetMax: target.max,
+      targetMid: target.mid,
       bulan: bulan,
       tahun: tahun,
       bulanAngka: bulanAngka,
       tanggal: tanggal,
       hargaPerTon: hargaPerTon,
+      persenKurang: persenKurang,
+      statusPanen: statusPanen,
     );
   }
 
@@ -210,6 +224,8 @@ class PanenRepository {
     });
   }
 
+  // Note: catatan is sync-payload-only (included in SyncQueue JSON for the
+  // server) and is not stored in the local Panens table or PanenModel.
   PanenModel _rowToModel(Panen row) => PanenModel(
     id: row.id,
     lahanId: row.lahanId,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/lahan_model.dart';
 import '../services/api_service.dart';
+import '../repositories/lahan_repository.dart';
+import '../main.dart' show appDb;
 import '../widgets/empty_state.dart';
 
 class PerbandinganScreen extends StatefulWidget {
@@ -12,6 +14,7 @@ class PerbandinganScreen extends StatefulWidget {
 }
 
 class _PerbandinganScreenState extends State<PerbandinganScreen> {
+  late final LahanRepository _lahanRepo = LahanRepository(db: appDb, api: ApiService());
   List<LahanModel>? _lahanList;
   bool _loading = true;
 
@@ -24,7 +27,7 @@ class _PerbandinganScreenState extends State<PerbandinganScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final list = await ApiService().getMyLahan();
+      final list = await _lahanRepo.getAll();
       if (mounted) setState(() { _lahanList = list; _loading = false; });
     } catch (_) {
       if (mounted) {

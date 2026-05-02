@@ -47,6 +47,10 @@ class SyncService with WidgetsBindingObserver {
           ..orderBy([(t) => OrderingTerm.asc(t.createdAt)])
       ).get();
 
+      // SQLite serialises writes via Drift's connection pool, so concurrent
+      // background refreshes (from repositories) and flush() are safe —
+      // they queue internally and will not interleave at the row level.
+      // _isFlushing guards against concurrent flush() calls only.
       for (final item in items) {
         await _processItem(item);
       }

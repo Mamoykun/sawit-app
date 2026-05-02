@@ -11,6 +11,7 @@ import '../services/analisa_service.dart';
 import '../repositories/panen_repository.dart';
 import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
+import '../widgets/offline_banner.dart';
 
 class InputPanenScreen extends StatefulWidget {
   final LahanModel lahan;
@@ -263,7 +264,11 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
+      body: Column(
+        children: [
+          const OfflineBanner(),
+          Expanded(
+            child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -354,6 +359,9 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
             ),
           ],
         ),
+      ),
+          ),
+        ],
       ),
     );
   }

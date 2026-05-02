@@ -4,6 +4,8 @@ import '../database/app_database.dart';
 import '../models/biaya_model.dart';
 import '../services/api_service.dart';
 
+int _tempIdCounter = 0;
+
 class BiayaRepository {
   final AppDatabase _db;
   final ApiService _api;
@@ -35,7 +37,7 @@ class BiayaRepository {
     required double jumlah,
     String? keterangan,
   }) async {
-    final tempId = -DateTime.now().millisecondsSinceEpoch;
+    final tempId = -(DateTime.now().millisecondsSinceEpoch * 1000 + (++_tempIdCounter % 1000));
     final now = DateTime.now().millisecondsSinceEpoch;
 
     await _db.into(_db.biayas).insert(BiayasCompanion(

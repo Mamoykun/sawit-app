@@ -7,6 +7,7 @@ import '../services/pdf_service.dart';
 import '../repositories/panen_repository.dart';
 import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
+import '../widgets/offline_banner.dart';
 import 'biaya_screen.dart';
 
 // ─── Month aggregation ────────────────────────────────────────────────────────
@@ -197,7 +198,12 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
           ),
         ],
       ),
-      body: _buildBody(),
+      body: Column(
+        children: [
+          const OfflineBanner(),
+          Expanded(child: _buildBody()),
+        ],
+      ),
     );
   }
 

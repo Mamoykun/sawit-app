@@ -9,6 +9,7 @@ import '../repositories/biaya_repository.dart';
 import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/offline_banner.dart';
 
 class BiayaScreen extends StatefulWidget {
   final LahanModel lahan;
@@ -121,7 +122,11 @@ class _BiayaScreenState extends State<BiayaScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: _loading
+      body: Column(
+        children: [
+          const OfflineBanner(),
+          Expanded(
+            child: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : RefreshIndicator(
               onRefresh: _loadData,
@@ -228,6 +233,9 @@ class _BiayaScreenState extends State<BiayaScreen> {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openForm(),
         backgroundColor: AppColors.primary,

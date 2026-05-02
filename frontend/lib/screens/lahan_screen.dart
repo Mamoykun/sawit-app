@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../repositories/lahan_repository.dart';
 import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
+import '../widgets/offline_banner.dart';
 import '../widgets/sawit_logo.dart';
 import 'main_screen.dart';
 import 'login_screen.dart';
@@ -124,20 +125,27 @@ class _LahanScreenState extends State<LahanScreen> {
         ),
       ],
     ),
-    body: _loading
-        ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-        : _error != null
-            ? _ErrorView(message: _error!, onRetry: _loadData)
-            : _lahanList!.isEmpty
-                ? _EmptyLahan(onAdd: _openAddLahan)
-                : _LahanList(
-                    lahanList: _lahanList!,
-                    userName: _userName,
-                    userPaket: _userPaket,
-                    onSelect: _selectLahan,
-                    onEdit: _openEditLahan,
-                    onAdd: _openAddLahan,
-                  ),
+    body: Column(
+      children: [
+        const OfflineBanner(),
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              : _error != null
+                  ? _ErrorView(message: _error!, onRetry: _loadData)
+                  : _lahanList!.isEmpty
+                      ? _EmptyLahan(onAdd: _openAddLahan)
+                      : _LahanList(
+                          lahanList: _lahanList!,
+                          userName: _userName,
+                          userPaket: _userPaket,
+                          onSelect: _selectLahan,
+                          onEdit: _openEditLahan,
+                          onAdd: _openAddLahan,
+                        ),
+        ),
+      ],
+    ),
   );
 }
 
