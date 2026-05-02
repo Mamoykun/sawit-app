@@ -4,6 +4,8 @@ import '../theme/app_theme.dart';
 import '../models/panen_model.dart';
 import '../models/lahan_model.dart';
 import '../services/api_service.dart';
+import '../repositories/panen_repository.dart';
+import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
 import 'input_panen_screen.dart';
 import 'riwayat_screen.dart';
@@ -66,7 +68,8 @@ class _BerandaScreenState extends State<BerandaScreen> {
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      final list = await ApiService().getRiwayat(widget.lahan.id, limit: 8);
+      final repo = PanenRepository(db: appDb, api: ApiService());
+      final list = await repo.getByLahan(widget.lahan.id, limit: 8);
       setState(() { _history = list; _loading = false; });
     } catch (_) {
       setState(() { _history = []; _loading = false; });
