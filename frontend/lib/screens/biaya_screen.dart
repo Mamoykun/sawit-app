@@ -5,6 +5,8 @@ import '../theme/app_theme.dart';
 import '../models/biaya_model.dart';
 import '../models/lahan_model.dart';
 import '../services/api_service.dart';
+import '../repositories/biaya_repository.dart';
+import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
 import '../widgets/empty_state.dart';
 
@@ -30,7 +32,7 @@ class _BiayaScreenState extends State<BiayaScreen> {
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      final list = await ApiService().getBiaya(widget.lahan.id, tahun: _selectedYear);
+      final list = await BiayaRepository(db: appDb, api: ApiService()).getByLahan(widget.lahan.id, tahun: _selectedYear);
       if (mounted) setState(() { _data = list; _loading = false; });
     } catch (_) {
       if (mounted) {
@@ -71,7 +73,7 @@ class _BiayaScreenState extends State<BiayaScreen> {
     );
     if (ok != true) return;
     try {
-      await ApiService().deleteBiaya(widget.lahan.id, b.id);
+      await BiayaRepository(db: appDb, api: ApiService()).delete(lahanId: widget.lahan.id, biayaId: b.id);
       _loadData();
     } catch (_) {
       if (mounted) {
@@ -526,26 +528,29 @@ class _BiayaFormState extends State<_BiayaForm> {
     }
     setState(() => _saving = true);
     try {
-      final api = ApiService();
+      final repo = BiayaRepository(db: appDb, api: ApiService());
+      final keterangan = _keteranganCtrl.text.trim().isEmpty
+          ? null : _keteranganCtrl.text.trim();
       if (widget.edit == null) {
-        await api.createBiaya(widget.lahan.id,
+        await repo.create(
+          lahanId: widget.lahan.id,
           bulan: _bulanNames[_date.month - 1],
           tahun: _date.year,
           bulanAngka: _date.month,
           kategoriCode: _kategori.code,
           jumlah: jumlah,
-          keterangan: _keteranganCtrl.text.trim().isEmpty
-              ? null : _keteranganCtrl.text.trim(),
+          keterangan: keterangan,
         );
       } else {
-        await api.updateBiaya(widget.lahan.id, widget.edit!.id,
+        await repo.update(
+          lahanId: widget.lahan.id,
+          biayaId: widget.edit!.id,
           bulan: _bulanNames[_date.month - 1],
           tahun: _date.year,
           bulanAngka: _date.month,
           kategoriCode: _kategori.code,
           jumlah: jumlah,
-          keterangan: _keteranganCtrl.text.trim().isEmpty
-              ? null : _keteranganCtrl.text.trim(),
+          keterangan: keterangan,
         );
       }
       if (mounted) Navigator.pop(context, true);
