@@ -4,9 +4,21 @@ import '../models/panen_model.dart';
 import '../models/lahan_model.dart';
 import '../widgets/common_widgets.dart';
 
+class AnalisaDataInfo {
+  final int panenCount;
+  final bool hasPupukData;
+  final bool hasLokasi;
+  const AnalisaDataInfo({
+    required this.panenCount,
+    required this.hasPupukData,
+    required this.hasLokasi,
+  });
+}
+
 class HasilAnalisaScreen extends StatelessWidget {
   final HasilAnalisa? hasil;
   final LahanModel? lahan;
+  final AnalisaDataInfo? dataInfo;
   final VoidCallback onGoToInput;
   final VoidCallback onGoToRiwayat;
   final VoidCallback? onRefresh;
@@ -15,6 +27,7 @@ class HasilAnalisaScreen extends StatelessWidget {
     super.key,
     required this.hasil,
     this.lahan,
+    this.dataInfo,
     required this.onGoToInput,
     required this.onGoToRiwayat,
     this.onRefresh,
@@ -42,6 +55,12 @@ class HasilAnalisaScreen extends StatelessWidget {
                 '${luasHa.toStringAsFixed(1)} ha · '
                 'Usia $usiaTahun tahun · ${p.bulan}',
           ),
+
+          // ─── Data Info Hint ──────────────────────────────────────────────
+          if (dataInfo != null) ...[
+            _DataInfoBadge(info: dataInfo!, lokasi: lahan?.lokasi),
+            const SizedBox(height: 14),
+          ],
 
           // ─── Status Banner ───────────────────────────────────────────────
           Container(
@@ -488,4 +507,74 @@ class _EmptyState extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _DataInfoBadge extends StatelessWidget {
+  final AnalisaDataInfo info;
+  final String? lokasi;
+  const _DataInfoBadge({required this.info, this.lokasi});
+
+  @override
+  Widget build(BuildContext context) {
+    // Petani baru (1 panen, belum ada pupuk) → tip motivasi
+    final isNewUser = info.panenCount <= 1 && !info.hasPupukData;
+    if (isNewUser) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.goldTint,
+          border: Border.all(color: AppColors.goldLight.withOpacity(0.4)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.lightbulb_outline_rounded,
+                size: 16, color: AppColors.gold),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Input panen rutin tiap bulan — analisa AI semakin akurat seiring data bertambah.',
+                style: AppTextStyles.body(11,
+                    color: AppColors.gold, weight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Petani lengkap → ringkasan sumber data
+    final parts = <String>[];
+    if (info.panenCount >= 2) {
+      parts.add('${info.panenCount} bulan riwayat');
+    }
+    if (info.hasPupukData) parts.add('riwayat pupuk');
+    if (info.hasLokasi && lokasi != null && lokasi!.isNotEmpty) {
+      parts.add('cuaca ${lokasi!}');
+    }
+    if (parts.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.primaryTint,
+        border: Border.all(color: AppColors.primary3.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.bar_chart_rounded,
+              size: 16, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Berdasarkan ${parts.join(' + ')}',
+              style: AppTextStyles.body(11,
+                  color: AppColors.primary, weight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

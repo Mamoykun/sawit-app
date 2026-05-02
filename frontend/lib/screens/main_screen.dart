@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/panen_model.dart';
 import '../models/lahan_model.dart';
+import '../models/biaya_model.dart' show KategoriBiaya;
 import '../services/api_service.dart';
 import '../services/analisa_service.dart';
 import 'beranda_screen.dart';
@@ -9,6 +10,7 @@ import 'hasil_analisa_screen.dart';
 import 'lahan_screen.dart';
 import 'profile_screen.dart';
 import '../repositories/panen_repository.dart';
+import '../repositories/biaya_repository.dart';
 import '../widgets/offline_banner.dart';
 import '../main.dart' show appDb;
 
@@ -29,6 +31,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   HasilAnalisa? _lastAnalisa;
+  AnalisaDataInfo? _analisaDataInfo;
 
   @override
   void initState() {
@@ -38,21 +41,37 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _loadLastAnalisa() async {
     try {
-      final repo = PanenRepository(db: appDb, api: ApiService());
-      final list = await repo.getByLahan(widget.lahan.id, limit: 1);
+      final panenRepo = PanenRepository(db: appDb, api: ApiService());
+      final biayaRepo = BiayaRepository(db: appDb, api: ApiService());
+      // Ambil sampai 6 bulan riwayat untuk hint metadata, panen pertama
+      // tetap dipakai sebagai analisa terakhir.
+      final list = await panenRepo.getByLahan(widget.lahan.id, limit: 6);
       if (!mounted) return;
       if (list.isEmpty) {
-        // Tidak ada panen lagi (mis. user hapus semua dari riwayat).
-        // Clear analisa supaya tab Analisa balik ke empty state.
-        setState(() => _lastAnalisa = null);
+        // Tidak ada panen lagi — clear analisa.
+        setState(() {
+          _lastAnalisa = null;
+          _analisaDataInfo = null;
+        });
         return;
       }
+      // Cek apakah ada biaya kategori PUPUK untuk lahan ini.
+      final biayaList = await biayaRepo.getByLahan(widget.lahan.id);
+      final hasPupuk = biayaList.any(
+          (b) => b.kategori == KategoriBiaya.pupuk);
+
       final last = list.first;
       final penyebab = last.analisa?.penyebab.isNotEmpty == true
           ? last.analisa!.penyebab
           : AnalisaService.getPenyebab(last.persenKurang);
       setState(() {
         _lastAnalisa = HasilAnalisa(panen: last, penyebab: penyebab);
+        _analisaDataInfo = AnalisaDataInfo(
+          panenCount: list.length,
+          hasPupukData: hasPupuk,
+          hasLokasi: widget.lahan.lokasi != null &&
+              widget.lahan.lokasi!.isNotEmpty,
+        );
       });
     } catch (_) {}
   }
@@ -77,6 +96,7 @@ class _MainScreenState extends State<MainScreen> {
       HasilAnalisaScreen(
         hasil: _lastAnalisa,
         lahan: widget.lahan,
+        dataInfo: _analisaDataInfo,
         onGoToInput: () => setState(() => _currentIndex = 0),
         onGoToRiwayat: () => setState(() => _currentIndex = 0),
         onRefresh: _loadLastAnalisa,
