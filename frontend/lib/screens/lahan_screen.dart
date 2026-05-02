@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../models/lahan_model.dart';
 import '../services/api_service.dart';
+import '../repositories/lahan_repository.dart';
+import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
 import '../widgets/sawit_logo.dart';
 import 'main_screen.dart';
@@ -34,7 +36,7 @@ class _LahanScreenState extends State<LahanScreen> {
       final prefs = await SharedPreferences.getInstance();
       _userName = prefs.getString('user_name') ?? '';
       _userPaket = prefs.getString('user_paket') ?? 'GRATIS';
-      final list = await ApiService().getMyLahan();
+      final list = await LahanRepository(db: appDb, api: ApiService()).getAll();
       setState(() { _lahanList = list; _loading = false; });
     } catch (e) {
       setState(() {
@@ -453,13 +455,13 @@ class _LahanFormScreenState extends State<LahanFormScreen> {
 
     setState(() { _loading = true; _error = null; });
     try {
-      final api = ApiService();
+      final repo = LahanRepository(db: appDb, api: ApiService());
       final jumlahPohon = int.tryParse(_pohonCtrl.text);
       final lokasi = _lokasiCtrl.text.trim();
 
       LahanModel result;
       if (_isEdit) {
-        result = await api.updateLahan(
+        result = await repo.update(
           widget.existing!.id,
           namaLahan: nama,
           luasHa: luas,
@@ -468,7 +470,7 @@ class _LahanFormScreenState extends State<LahanFormScreen> {
           lokasi: lokasi.isEmpty ? null : lokasi,
         );
       } else {
-        result = await api.createLahan(
+        result = await repo.create(
           namaLahan: nama,
           luasHa: luas,
           tahunTanam: tahun,
