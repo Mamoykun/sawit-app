@@ -2,10 +2,15 @@ package com.sawitku.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "diagnosa")
+@SQLDelete(sql = "UPDATE diagnosa SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class Diagnosa {
 
@@ -41,4 +46,7 @@ public class Diagnosa {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 }
