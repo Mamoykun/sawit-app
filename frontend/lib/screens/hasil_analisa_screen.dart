@@ -315,32 +315,37 @@ class _ProgressBar extends StatelessWidget {
 
     return Column(
       children: [
-        Stack(
-          children: [
-            // Background
-            Container(height: 10, decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(99),
-            )),
-            // Target zone
-            Positioned(
-              left: MediaQuery.of(context).size.width * minPct * 0.75,
-              width: MediaQuery.of(context).size.width * (maxPct - minPct) * 0.75,
-              top: 0, bottom: 0,
-              child: Container(color: AppColors.primary3.withOpacity(0.25)),
-            ),
-            // Actual bar
-            FractionallySizedBox(
-              widthFactor: aktualPct,
-              child: Container(
-                height: 10,
-                decoration: BoxDecoration(
-                  color: barColor,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final barWidth = constraints.maxWidth;
+            return Stack(
+              children: [
+                // Background
+                Container(height: 10, decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(99),
+                )),
+                // Target zone (relatif ke lebar bar parent, bukan layar)
+                Positioned(
+                  left: barWidth * minPct,
+                  width: barWidth * (maxPct - minPct),
+                  top: 0, bottom: 0,
+                  child: Container(color: AppColors.primary3.withOpacity(0.25)),
                 ),
-              ),
-            ),
-          ],
+                // Actual bar
+                FractionallySizedBox(
+                  widthFactor: aktualPct,
+                  child: Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: barColor,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 4),
         Row(

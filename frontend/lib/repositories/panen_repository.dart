@@ -59,8 +59,10 @@ class PanenRepository {
     final now = DateTime.now().millisecondsSinceEpoch;
 
     final target = AnalisaService.getTarget(luasHa, usiaPohon);
-    final persenKurang = tonAktual < target.mid
-        ? max(0.0, (target.mid - tonAktual) / target.mid * 100)
+    // persenKurang relatif ke target.min — konsisten dengan threshold status
+    // (status normal saat aktual >= min, jadi persenKurang = 0% saat normal).
+    final persenKurang = tonAktual < target.min
+        ? max(0.0, (target.min - tonAktual) / target.min * 100)
         : 0.0;
     final statusPanen = tonAktual >= target.min
         ? 'NORMAL'
@@ -138,8 +140,9 @@ class PanenRepository {
     final now = DateTime.now().millisecondsSinceEpoch;
 
     final target = AnalisaService.getTarget(luasHa, usiaPohon);
-    final persenKurang = tonAktual < target.mid
-        ? max(0.0, (target.mid - tonAktual) / target.mid * 100)
+    // persenKurang relatif ke target.min — konsisten dengan threshold status.
+    final persenKurang = tonAktual < target.min
+        ? max(0.0, (target.min - tonAktual) / target.min * 100)
         : 0.0;
     final statusPanen = tonAktual >= target.min
         ? 'NORMAL'

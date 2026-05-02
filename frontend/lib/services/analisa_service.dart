@@ -27,7 +27,14 @@ class AnalisaService {
     return (min: min, max: max, mid: mid, fase: fase);
   }
 
-  /// Analisa penyebab berdasarkan % kekurangan
+  /// Analisa penyebab berdasarkan % kekurangan dari target minimum.
+  /// Severity meningkat seiring besarnya kekurangan:
+  /// • <8%   : faktor musiman (low)
+  /// • 8–14% : kalium (low)
+  /// • 15–19%: kekeringan (medium)
+  /// • 20–27%: hama/penyakit (medium)
+  /// • 28–34%: kompetisi gulma (high)
+  /// • >35%  : pruning tidak optimal (high)
   static List<AnalisaPenyebab> getPenyebab(double persenKurang) {
     final list = <AnalisaPenyebab>[];
 
@@ -37,7 +44,7 @@ class AnalisaService {
         title: 'Defisiensi Kalium (K)',
         detail: 'Aplikasikan pupuk MOP 0.5–1 kg per pohon. '
             'Kalium meningkatkan bobot tandan dan kualitas minyak sawit.',
-        severity: 'high',
+        severity: 'low',
       ));
     }
     if (persenKurang > 15) {
@@ -46,7 +53,7 @@ class AnalisaService {
         title: 'Stres Kekeringan',
         detail: 'Pasang mulsa pelepah di piringan pohon radius 2 meter '
             'untuk menjaga kelembaban tanah di musim kering.',
-        severity: 'high',
+        severity: 'medium',
       ));
     }
     if (persenKurang > 20) {
@@ -64,7 +71,7 @@ class AnalisaService {
         title: 'Kompetisi Gulma',
         detail: 'Lakukan penyiangan di piringan pohon. '
             'Gulma bersaing langsung menyerap nutrisi dan air dari tanah.',
-        severity: 'medium',
+        severity: 'high',
       ));
     }
     if (persenKurang > 35) {
@@ -73,7 +80,7 @@ class AnalisaService {
         title: 'Pruning Tidak Optimal',
         detail: 'Pertahankan 40–48 pelepah aktif. Terlalu lebat menghambat '
             'penyerbukan dan perkembangan tandan buah segar.',
-        severity: 'low',
+        severity: 'high',
       ));
     }
 
