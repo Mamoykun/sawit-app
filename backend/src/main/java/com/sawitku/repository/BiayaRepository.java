@@ -27,4 +27,14 @@ public interface BiayaRepository extends JpaRepository<Biaya, Long> {
         @Param("sinceTahun") Integer sinceTahun,
         @Param("sinceBulan") Integer sinceBulan
     );
+
+    @Query("SELECT b.bulanAngka, SUM(b.jumlah) FROM Biaya b "
+         + "WHERE b.lahan.id = :lahanId AND b.tahun = :tahun "
+         + "GROUP BY b.bulanAngka ORDER BY b.bulanAngka")
+    List<Object[]> sumByMonth(@Param("lahanId") Long lahanId, @Param("tahun") Integer tahun);
+
+    @Query("SELECT b.kategori, SUM(b.jumlah) FROM Biaya b "
+         + "WHERE b.lahan.id = :lahanId AND b.tahun = :tahun "
+         + "GROUP BY b.kategori")
+    List<Object[]> sumByKategori(@Param("lahanId") Long lahanId, @Param("tahun") Integer tahun);
 }
