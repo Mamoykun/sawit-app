@@ -482,12 +482,20 @@ class _MonthSection extends StatelessWidget {
   final List<BiayaModel> items;
   final ValueChanged<BiayaModel> onEdit;
   final ValueChanged<BiayaModel> onDelete;
+  final bool selectionMode;
+  final Set<int> selectedIds;
+  final ValueChanged<BiayaModel> onLongPress;
+  final ValueChanged<BiayaModel> onSelectionTap;
 
   const _MonthSection({
     required this.label,
     required this.items,
     required this.onEdit,
     required this.onDelete,
+    this.selectionMode = false,
+    this.selectedIds = const {},
+    required this.onLongPress,
+    required this.onSelectionTap,
   });
 
   @override
@@ -517,6 +525,10 @@ class _MonthSection extends StatelessWidget {
                 biaya: b,
                 onEdit: () => onEdit(b),
                 onDelete: () => onDelete(b),
+                selectionMode: selectionMode,
+                selected: selectedIds.contains(b.id),
+                onLongPress: () => onLongPress(b),
+                onSelectionTap: () => onSelectionTap(b),
               )),
         ],
       ),
@@ -528,71 +540,172 @@ class _BiayaItem extends StatelessWidget {
   final BiayaModel biaya;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback onLongPress;
+  final VoidCallback onSelectionTap;
 
   const _BiayaItem({
     required this.biaya,
     required this.onEdit,
     required this.onDelete,
+    this.selectionMode = false,
+    this.selected = false,
+    required this.onLongPress,
+    required this.onSelectionTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final color = _kategoriColor(biaya.kategori);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(_kategoriIcon(biaya.kategori), color: color, size: 18),
+    return GestureDetector(
+      onLongPress: onLongPress,
+      onTap: selectionMode ? onSelectionTap : null,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.primaryTint
+              : AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.border,
+            width: selected ? 2 : 1,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(biaya.kategori.label,
-                    style: AppTextStyles.body(13,
-                        color: AppColors.text, weight: FontWeight.w600)),
-                if (biaya.keterangan != null && biaya.keterangan!.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(biaya.keterangan!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.body(11, color: AppColors.textMuted)),
-                ],
-              ],
-            ),
-          ),
-          Text(_formatRp(biaya.jumlah),
-              style: AppTextStyles.body(13,
-                  color: AppColors.text, weight: FontWeight.w700)),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded,
-                color: AppColors.textMuted, size: 20),
-            onSelected: (v) {
-              if (v == 'edit') onEdit();
-              if (v == 'delete') onDelete();
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'edit', child: Text('Edit')),
-              PopupMenuItem(
-                  value: 'delete',
-                  child: Text('Hapus', style: TextStyle(color: AppColors.danger))),
+        ),
+        child: Row(
+          children: [
+            if (selectionMode) ...[
+              Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: selected ? AppColors.primary : AppColors.textLight,
+                size: 22,
+              ),
+              const SizedBox(width: 12),
+            ] else ...[
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(_kategoriIcon(biaya.kategori), color: color, size: 18),
+              ),
+              const SizedBox(width: 12),
             ],
-          ),
-        ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(biaya.kategori.label,
+                      style: AppTextStyles.body(13,
+                          color: AppColors.text, weight: FontWeight.w600)),
+                  if (biaya.keterangan != null && biaya.keterangan!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(biaya.keterangan!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.body(11, color: AppColors.textMuted)),
+                  ],
+                ],
+              ),
+            ),
+            Text(_formatRp(biaya.jumlah),
+                style: AppTextStyles.body(13,
+                    color: AppColors.text, weight: FontWeight.w700)),
+            if (!selectionMode)
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert_rounded,
+                    color: AppColors.textMuted, size: 20),
+                onSelected: (v) {
+                  if (v == 'edit') onEdit();
+                  if (v == 'delete') onDelete();
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'edit', child: Text('Edit')),
+                  PopupMenuItem(
+                      value: 'delete',
+                      child: Text('Hapus', style: TextStyle(color: AppColors.danger))),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BiayaSelectionBottomBar extends StatelessWidget {
+  final int count;
+  final VoidCallback? onDelete;
+  final VoidCallback onCancel;
+
+  const _BiayaSelectionBottomBar({
+    required this.count,
+    required this.onDelete,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border(top: BorderSide(color: AppColors.border)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 12,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: onCancel,
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppColors.border),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text('Batal',
+                    style: AppTextStyles.body(14,
+                        color: AppColors.textMid, weight: FontWeight.w600)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: ElevatedButton.icon(
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+                label: Text(
+                  count > 0 ? 'Hapus $count Data' : 'Hapus',
+                  style: AppTextStyles.body(14,
+                      color: Colors.white, weight: FontWeight.w700),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.danger,
+                  disabledBackgroundColor: AppColors.danger.withOpacity(0.4),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
