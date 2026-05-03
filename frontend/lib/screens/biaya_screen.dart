@@ -25,6 +25,86 @@ class _BiayaScreenState extends State<BiayaScreen> {
   bool _loading = true;
   int _selectedYear = DateTime.now().year;
 
+  // ── Selection mode ─────────────────────────────────────────────────────────
+  bool _selectionMode = false;
+  final Set<int> _selectedIds = {};
+
+  void _enterSelection(int firstId) {
+    setState(() {
+      _selectionMode = true;
+      _selectedIds.add(firstId);
+    });
+  }
+
+  void _toggleSelection(int id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+      if (_selectedIds.isEmpty) _selectionMode = false;
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  void _selectAll() {
+    setState(() {
+      for (final b in (_data ?? [])) {
+        _selectedIds.add(b.id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    if (_selectedIds.isEmpty) return;
+    final count = _selectedIds.length;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Hapus $count Catatan Biaya?',
+            style: AppTextStyles.display(16)),
+        content: Text(
+          'Menghapus $count catatan biaya sekaligus. Tindakan ini tidak dapat dibatalkan.',
+          style: AppTextStyles.body(13, color: AppColors.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Batal',
+                style: AppTextStyles.body(13, color: AppColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Hapus',
+                style: AppTextStyles.body(13,
+                    color: AppColors.danger, weight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    final ids = List<int>.from(_selectedIds);
+    for (final id in ids) {
+      try {
+        await _biayaRepo.delete(lahanId: widget.lahan.id, biayaId: id);
+      } catch (_) {}
+    }
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+    _loadData();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -95,9 +175,41 @@ class _BiayaScreenState extends State<BiayaScreen> {
     final byCategory = _groupByCategory(data);
     final byMonth = _groupByMonth(data);
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_selectionMode,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _selectionMode) _exitSelectionMode();
+      },
+      child: Scaffold(
       backgroundColor: AppColors.bg,
-      appBar: AppBar(
+      appBar: _selectionMode
+          ? AppBar(
+              backgroundColor: AppColors.primary,
+              leading: IconButton(
+                icon: const Icon(Icons.close_rounded, color: Colors.white),
+                onPressed: _exitSelectionMode,
+              ),
+              title: Text(
+                '${_selectedIds.length} dipilih',
+                style: AppTextStyles.display(18, color: Colors.white),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.select_all_rounded,
+                      color: Colors.white),
+                  tooltip: 'Pilih semua',
+                  onPressed: _selectAll,
+                ),
+                IconButton(
+                  icon:
+                      const Icon(Icons.delete_rounded, color: Colors.white),
+                  tooltip: 'Hapus dipilih',
+                  onPressed:
+                      _selectedIds.isEmpty ? null : _deleteSelected,
+                ),
+              ],
+            )
+          : AppBar(
         title: Text('Biaya Operasional',
             style: AppTextStyles.display(18, color: Colors.white)),
         leading: IconButton(
@@ -227,6 +339,10 @@ class _BiayaScreenState extends State<BiayaScreen> {
                             items: e.value,
                             onEdit: (b) => _openForm(edit: b),
                             onDelete: _confirmDelete,
+                            selectionMode: _selectionMode,
+                            selectedIds: _selectedIds,
+                            onLongPress: (b) => _enterSelection(b.id),
+                            onSelectionTap: (b) => _toggleSelection(b.id),
                           )),
                     ],
                   ],
@@ -236,14 +352,24 @@ class _BiayaScreenState extends State<BiayaScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openForm(),
-        backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: Text('Tambah Biaya',
-            style: AppTextStyles.body(14,
-                color: Colors.white, weight: FontWeight.w700)),
-      ),
+      floatingActionButton: _selectionMode
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _openForm(),
+              backgroundColor: AppColors.primary,
+              icon: const Icon(Icons.add_rounded, color: Colors.white),
+              label: Text('Tambah Biaya',
+                  style: AppTextStyles.body(14,
+                      color: Colors.white, weight: FontWeight.w700)),
+            ),
+      bottomNavigationBar: _selectionMode
+          ? _BiayaSelectionBottomBar(
+              count: _selectedIds.length,
+              onDelete: _selectedIds.isEmpty ? null : _deleteSelected,
+              onCancel: _exitSelectionMode,
+            )
+          : null,
+    ),
     );
   }
 

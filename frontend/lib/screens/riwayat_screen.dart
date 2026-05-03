@@ -4,7 +4,11 @@ import '../theme/app_theme.dart';
 import '../models/panen_model.dart';
 import '../models/lahan_model.dart';
 import '../services/api_service.dart';
-import '../services/pdf_service.dart';
+import '../services/laporan_pdf_service.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'dart:io';
+import 'laporan_screen.dart';
 import '../repositories/panen_repository.dart';
 import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
@@ -96,6 +100,87 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
   List<PanenModel>? _data;
   bool _loading = true;
   bool _exporting = false;
+
+  // ── Selection mode state ───────────────────────────────────────────────────
+  bool _selectionMode = false;
+  final Set<int> _selectedIds = {};
+
+  void _enterSelection(int firstId) {
+    setState(() {
+      _selectionMode = true;
+      _selectedIds.add(firstId);
+    });
+  }
+
+  void _toggleSelection(int id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+      if (_selectedIds.isEmpty) _selectionMode = false;
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  void _selectAll(List<PanenModel> displayed) {
+    setState(() {
+      for (final p in displayed) {
+        if (p.id != null) _selectedIds.add(p.id!);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    if (_selectedIds.isEmpty) return;
+    final count = _selectedIds.length;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Hapus $count Data Panen?', style: AppTextStyles.display(16)),
+        content: Text(
+          'Menghapus $count data panen sekaligus. Tindakan ini tidak dapat dibatalkan.',
+          style: AppTextStyles.body(13, color: AppColors.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Batal',
+                style: AppTextStyles.body(13, color: AppColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Hapus',
+                style: AppTextStyles.body(13,
+                    color: AppColors.danger, weight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    // Sequential delete to avoid race conditions in sync_queue
+    final ids = List<int>.from(_selectedIds);
+    for (final id in ids) {
+      try {
+        await _panenRepo.delete(
+            lahanId: widget.lahan.id, panenId: id);
+      } catch (_) {}
+    }
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+    _loadData();
+  }
 
   // ── Search / filter / sort state ──────────────────────────────────────────
   final TextEditingController _searchController = TextEditingController();
@@ -304,13 +389,36 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
     _savePrefs();
   }
 
+  /// Quick "panen-only" PDF export for current filtered view.
   Future<void> _exportPdf() async {
     if (_data == null || _data!.isEmpty) return;
     setState(() => _exporting = true);
     try {
-      // Fetch all data for a complete report (screen only loads 50)
       final allData = await _panenRepo.getByLahan(widget.lahan.id, limit: 999);
-      await PdfService.exportLaporan(lahan: widget.lahan, data: allData);
+      final opts = LaporanOptions(
+        lahan: widget.lahan,
+        tahun: _selectedYear,
+        includePanen: true,
+        includeBiaya: false,
+        includeProfitLoss: false,
+        includeAnalytics: false,
+        userName: 'Petani',
+      );
+      final bytes = await LaporanPdfService().generate(
+        opts,
+        panenList: allData,
+        biayaList: const [],
+      );
+      final dir = await getTemporaryDirectory();
+      final slug = widget.lahan.namaLahan
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9]'), '-');
+      final file = File('${dir.path}/panen-$slug-$_selectedYear.pdf');
+      await file.writeAsBytes(bytes);
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/pdf')],
+        subject: 'Laporan Panen ${widget.lahan.namaLahan} $_selectedYear',
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -323,6 +431,13 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
     }
   }
 
+  void _openFullLaporan() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => LaporanScreen(lahan: widget.lahan)),
+    );
+  }
+
   void _openBiaya() {
     Navigator.push(
       context,
@@ -332,45 +447,101 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        title: Text('Riwayat Panen',
-            style: AppTextStyles.display(18, color: Colors.white)),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          GestureDetector(
-            onTap: _openBiaya,
-            child: Container(
-              margin: const EdgeInsets.only(right: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.gold.withOpacity(0.25),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.gold.withOpacity(0.4)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.receipt_long_rounded,
-                      size: 14, color: Colors.white),
-                  const SizedBox(width: 5),
-                  Text('Biaya',
-                      style: AppTextStyles.body(11,
-                          color: Colors.white, weight: FontWeight.w700)),
+    final displayedData = _selectionMode
+        ? (_applyFilters(_data ?? []))
+        : <PanenModel>[];
+
+    return PopScope(
+      canPop: !_selectionMode,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _selectionMode) _exitSelectionMode();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.bg,
+        appBar: _selectionMode
+            ? AppBar(
+                backgroundColor: AppColors.primary,
+                leading: IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  onPressed: _exitSelectionMode,
+                ),
+                title: Text(
+                  '${_selectedIds.length} dipilih',
+                  style: AppTextStyles.display(18, color: Colors.white),
+                ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.select_all_rounded,
+                        color: Colors.white),
+                    tooltip: 'Pilih semua',
+                    onPressed: () => _selectAll(_applyFilters(_data ?? [])),
+                  ),
+                  IconButton(
+                    icon:
+                        const Icon(Icons.delete_rounded, color: Colors.white),
+                    tooltip: 'Hapus dipilih',
+                    onPressed:
+                        _selectedIds.isEmpty ? null : _deleteSelected,
+                  ),
+                ],
+              )
+            : AppBar(
+                title: Text('Riwayat Panen',
+                    style: AppTextStyles.display(18, color: Colors.white)),
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded,
+                      color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                actions: [
+                  // Full laporan button
+                  IconButton(
+                    icon: const Icon(Icons.picture_as_pdf_rounded,
+                        color: Colors.white),
+                    tooltip: 'Laporan Lengkap',
+                    onPressed: _openFullLaporan,
+                  ),
+                  GestureDetector(
+                    onTap: _openBiaya,
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.gold.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: AppColors.gold.withOpacity(0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.receipt_long_rounded,
+                              size: 14, color: Colors.white),
+                          const SizedBox(width: 5),
+                          Text('Biaya',
+                              style: AppTextStyles.body(11,
+                                  color: Colors.white,
+                                  weight: FontWeight.w700)),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          const OfflineBanner(),
-          Expanded(child: _buildBody()),
-        ],
+        body: Column(
+          children: [
+            const OfflineBanner(),
+            Expanded(child: _buildBody()),
+          ],
+        ),
+        // Selection mode bottom action bar
+        bottomNavigationBar: _selectionMode
+            ? _SelectionBottomBar(
+                count: _selectedIds.length,
+                onDelete: _selectedIds.isEmpty ? null : _deleteSelected,
+                onCancel: _exitSelectionMode,
+              )
+            : null,
       ),
     );
   }
@@ -723,7 +894,19 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 children: data
-                    .map((p) => _RiwayatItem(panen: p, onDeleted: _loadData))
+                    .map((p) => _RiwayatItem(
+                          panen: p,
+                          onDeleted: _loadData,
+                          selectionMode: _selectionMode,
+                          isSelected:
+                              p.id != null && _selectedIds.contains(p.id),
+                          onLongPress: p.id != null
+                              ? () => _enterSelection(p.id!)
+                              : null,
+                          onSelectionTap: p.id != null
+                              ? () => _toggleSelection(p.id!)
+                              : null,
+                        ))
                     .toList(),
               ),
             ),
@@ -923,7 +1106,19 @@ class _DottedTargetLine extends StatelessWidget {
 class _RiwayatItem extends StatelessWidget {
   final PanenModel panen;
   final VoidCallback onDeleted;
-  const _RiwayatItem({required this.panen, required this.onDeleted});
+  final bool selectionMode;
+  final bool isSelected;
+  final VoidCallback? onLongPress;
+  final VoidCallback? onSelectionTap;
+
+  const _RiwayatItem({
+    required this.panen,
+    required this.onDeleted,
+    this.selectionMode = false,
+    this.isSelected = false,
+    this.onLongPress,
+    this.onSelectionTap,
+  });
 
   void _showDetail(BuildContext context) {
     showModalBottomSheet(
@@ -938,20 +1133,30 @@ class _RiwayatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final ok = panen.tonAktual >= panen.targetMin;
     final pct = panen.persenKurang;
-    final accentColor = ok
-        ? AppColors.primary3
-        : pct > 20
-            ? AppColors.danger
-            : AppColors.goldLight;
+    final accentColor = isSelected
+        ? AppColors.primary
+        : ok
+            ? AppColors.primary3
+            : pct > 20
+                ? AppColors.danger
+                : AppColors.goldLight;
 
     return GestureDetector(
-      onTap: () => _showDetail(context),
+      onTap: selectionMode
+          ? onSelectionTap
+          : () => _showDetail(context),
+      onLongPress: selectionMode ? null : onLongPress,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: isSelected
+              ? AppColors.primaryTint
+              : AppColors.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(
+            color: isSelected ? AppColors.primary3 : AppColors.border,
+            width: isSelected ? 1.5 : 1,
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.03),
@@ -964,6 +1169,35 @@ class _RiwayatItem extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Checkbox in selection mode
+              if (selectionMode)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 0),
+                  child: Center(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.textLight,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: isSelected
+                          ? const Icon(Icons.check_rounded,
+                              color: Colors.white, size: 14)
+                          : null,
+                    ),
+                  ),
+                ),
               // Left accent bar
               Container(
                 width: 4,
@@ -1034,8 +1268,9 @@ class _RiwayatItem extends StatelessWidget {
                                 ],
                               ),
                               const SizedBox(width: 8),
-                              const Icon(Icons.chevron_right_rounded,
-                                  color: AppColors.textLight, size: 20),
+                              if (!selectionMode)
+                                const Icon(Icons.chevron_right_rounded,
+                                    color: AppColors.textLight, size: 20),
                             ],
                           ),
                         ],
@@ -1891,6 +2126,67 @@ class _PickerSheet extends StatelessWidget {
                 },
               );
             }),
+          ],
+        ),
+      );
+}
+
+// ─── Selection mode bottom action bar ────────────────────────────────────────
+
+class _SelectionBottomBar extends StatelessWidget {
+  final int count;
+  final VoidCallback? onDelete;
+  final VoidCallback onCancel;
+
+  const _SelectionBottomBar({
+    required this.count,
+    required this.onDelete,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: EdgeInsets.fromLTRB(
+            20, 12, 20, 12 + MediaQuery.of(context).padding.bottom),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: onCancel,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.textMid,
+                  side: const BorderSide(color: AppColors.border),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Batal'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: ElevatedButton.icon(
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_rounded,
+                    color: Colors.white, size: 18),
+                label: Text(
+                  'Hapus $count Data',
+                  style: const TextStyle(color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.danger,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+              ),
+            ),
           ],
         ),
       );
