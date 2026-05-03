@@ -17,6 +17,8 @@ import 'tips_screen.dart';
 import 'profit_loss_screen.dart';
 import 'production_analytics_screen.dart';
 import 'laporan_screen.dart';
+import 'import_excel_screen.dart';
+import 'photo_progress_screen.dart';
 
 class BerandaScreen extends StatefulWidget {
   final LahanModel lahan;
@@ -102,6 +104,8 @@ class _BerandaScreenState extends State<BerandaScreen> {
         onOpenProfitLoss: _openProfitLoss,
         onOpenAnalytics: _openAnalytics,
         onOpenLaporan: _openLaporan,
+        onOpenImportExcel: _openImportExcel,
+        onOpenPhotoProgress: _openPhotoProgress,
         showHint: _showHint,
         onDismissHint: _dismissHint,
       ),
@@ -201,6 +205,26 @@ class _BerandaScreenState extends State<BerandaScreen> {
     );
   }
 
+  Future<void> _openImportExcel() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => ImportExcelScreen(lahan: widget.lahan)),
+    );
+    if (mounted) {
+      _loadData();
+      widget.onRefreshAnalisa();
+    }
+  }
+
+  Future<void> _openPhotoProgress() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => PhotoProgressScreen(lahan: widget.lahan)),
+    );
+  }
+
 }
 
 class _BerandaContent extends StatelessWidget {
@@ -216,6 +240,8 @@ class _BerandaContent extends StatelessWidget {
   final VoidCallback onOpenProfitLoss;
   final VoidCallback onOpenAnalytics;
   final VoidCallback onOpenLaporan;
+  final VoidCallback onOpenImportExcel;
+  final VoidCallback onOpenPhotoProgress;
   final bool showHint;
   final VoidCallback onDismissHint;
 
@@ -232,6 +258,8 @@ class _BerandaContent extends StatelessWidget {
     required this.onOpenProfitLoss,
     required this.onOpenAnalytics,
     required this.onOpenLaporan,
+    required this.onOpenImportExcel,
+    required this.onOpenPhotoProgress,
     required this.showHint,
     required this.onDismissHint,
   });
@@ -610,6 +638,18 @@ class _BerandaContent extends StatelessWidget {
                 label: 'Cetak Laporan',
                 color: const Color(0xFFDC2626),
                 onTap: onOpenLaporan,
+              ),
+              _GridIcon(
+                icon: Icons.upload_file_rounded,
+                label: 'Import Excel',
+                color: const Color(0xFF059669),
+                onTap: onOpenImportExcel,
+              ),
+              _GridIcon(
+                icon: Icons.photo_library_rounded,
+                label: 'Foto Progress',
+                color: const Color(0xFFEC4899),
+                onTap: onOpenPhotoProgress,
               ),
             ],
           ),
