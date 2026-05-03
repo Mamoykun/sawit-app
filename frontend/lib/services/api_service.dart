@@ -7,6 +7,7 @@ import '../models/panen_model.dart';
 import '../models/lahan_model.dart';
 import '../models/biaya_model.dart';
 import '../models/diagnosa_model.dart';
+import '../models/lahan_photo_model.dart';
 import '../models/payment_model.dart';
 import '../main.dart';
 import '../screens/login_screen.dart';
@@ -435,6 +436,43 @@ class ApiService {
 
   Future<void> deleteDiagnosa(int lahanId, int diagnosaId) async {
     await _dio.delete('/lahan/$lahanId/diagnosa/$diagnosaId');
+  }
+
+  // ─── LAHAN PHOTO PROGRESS ─────────────────────────────────────────────────
+
+  /// Upload a progress photo for a lahan.
+  Future<LahanPhotoModel> uploadLahanPhoto(int lahanId, {
+    required List<int> imageBytes,
+    required String filename,
+    String? caption,
+  }) async {
+    final formData = FormData.fromMap({
+      'image': MultipartFile.fromBytes(imageBytes, filename: filename),
+      if (caption != null && caption.isNotEmpty) 'caption': caption,
+    });
+    final res = await _dio.post(
+      '/lahan/$lahanId/photos',
+      data: formData,
+      options: Options(
+        contentType: 'multipart/form-data',
+        sendTimeout: const Duration(seconds: 60),
+        receiveTimeout: const Duration(seconds: 60),
+      ),
+    );
+    return LahanPhotoModel.fromJson(res.data['data']);
+  }
+
+  /// List all progress photos for a lahan.
+  Future<List<LahanPhotoModel>> getLahanPhotos(int lahanId) async {
+    final res = await _dio.get('/lahan/$lahanId/photos');
+    return (res.data['data'] as List)
+        .map((e) => LahanPhotoModel.fromJson(e))
+        .toList();
+  }
+
+  /// Soft-delete a lahan photo.
+  Future<void> deleteLahanPhoto(int lahanId, int photoId) async {
+    await _dio.delete('/lahan/$lahanId/photos/$photoId');
   }
 
   // ─── PAYMENTS / SUBSCRIPTION ──────────────────────────────────────────────
