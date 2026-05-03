@@ -15,6 +15,7 @@ import 'jadwal_pupuk_screen.dart';
 import 'perbandingan_screen.dart';
 import 'tips_screen.dart';
 import 'profit_loss_screen.dart';
+import 'production_analytics_screen.dart';
 
 class BerandaScreen extends StatefulWidget {
   final LahanModel lahan;
@@ -98,6 +99,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
         onOpenPerbandingan: _openPerbandingan,
         onOpenTips: _openTips,
         onOpenProfitLoss: _openProfitLoss,
+        onOpenAnalytics: _openAnalytics,
         showHint: _showHint,
         onDismissHint: _dismissHint,
       ),
@@ -181,6 +183,14 @@ class _BerandaScreenState extends State<BerandaScreen> {
     );
   }
 
+  Future<void> _openAnalytics() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => ProductionAnalyticsScreen(lahan: widget.lahan)),
+    );
+  }
+
 }
 
 class _BerandaContent extends StatelessWidget {
@@ -194,6 +204,7 @@ class _BerandaContent extends StatelessWidget {
   final VoidCallback onOpenPerbandingan;
   final VoidCallback onOpenTips;
   final VoidCallback onOpenProfitLoss;
+  final VoidCallback onOpenAnalytics;
   final bool showHint;
   final VoidCallback onDismissHint;
 
@@ -208,6 +219,7 @@ class _BerandaContent extends StatelessWidget {
     required this.onOpenPerbandingan,
     required this.onOpenTips,
     required this.onOpenProfitLoss,
+    required this.onOpenAnalytics,
     required this.showHint,
     required this.onDismissHint,
   });
@@ -574,6 +586,12 @@ class _BerandaContent extends StatelessWidget {
                 label: 'Untung Rugi',
                 color: const Color(0xFF059669),
                 onTap: onOpenProfitLoss,
+              ),
+              _GridIcon(
+                icon: Icons.show_chart_rounded,
+                label: 'Analisa Produksi',
+                color: const Color(0xFF2563EB),
+                onTap: onOpenAnalytics,
               ),
             ],
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../models/panen_model.dart';
 import '../models/lahan_model.dart';
@@ -96,11 +97,53 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
   bool _loading = true;
   bool _exporting = false;
 
+  // ── Search / filter / sort state ──────────────────────────────────────────
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  int _selectedYear = DateTime.now().year;
+  String? _statusFilter; // null = semua, 'normal' | 'warn' | 'danger'
+  String _sortBy = 'newest'; // 'newest' | 'oldest' | 'ton_desc' | 'ton_asc'
+
+  String get _sortLabel => {
+        'newest': 'Terbaru',
+        'oldest': 'Terlama',
+        'ton_desc': 'Ton ↓',
+        'ton_asc': 'Ton ↑',
+      }[_sortBy]!;
+
   @override
   void initState() {
     super.initState();
     _panenRepo = PanenRepository(db: appDb, api: ApiService());
-    _loadData();
+    _loadPrefs().then((_) => _loadData());
+  }
+
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _selectedYear = prefs.getInt('riwayat.year') ?? DateTime.now().year;
+        _statusFilter = prefs.getString('riwayat.status');
+        _sortBy = prefs.getString('riwayat.sort') ?? 'newest';
+      });
+    }
+  }
+
+  Future<void> _savePrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('riwayat.year', _selectedYear);
+    if (_statusFilter != null) {
+      await prefs.setString('riwayat.status', _statusFilter!);
+    } else {
+      await prefs.remove('riwayat.status');
+    }
+    await prefs.setString('riwayat.sort', _sortBy);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -115,7 +158,8 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      final list = await _panenRepo.getByLahan(widget.lahan.id, limit: 50);
+      // Fetch all available data so filter/sort can work across all years
+      final list = await _panenRepo.getByLahan(widget.lahan.id, limit: 500);
       if (mounted) {
         setState(() {
           _data = list;
@@ -134,6 +178,130 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
         ));
       }
     }
+  }
+
+  // ── Filter & sort ──────────────────────────────────────────────────────────
+  List<PanenModel> _applyFilters(List<PanenModel> data) {
+    var filtered = data.where((p) {
+      if (p.tahun != _selectedYear) return false;
+      if (_statusFilter != null && p.status != _statusFilter) return false;
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        final inBulan = p.bulan.toLowerCase().contains(q);
+        return inBulan;
+      }
+      return true;
+    }).toList();
+
+    switch (_sortBy) {
+      case 'newest':
+        filtered.sort((a, b) {
+          final ay = a.tahun ?? 0, by = b.tahun ?? 0;
+          if (ay != by) return by.compareTo(ay);
+          return (b.bulanAngka ?? 0).compareTo(a.bulanAngka ?? 0);
+        });
+        break;
+      case 'oldest':
+        filtered.sort((a, b) {
+          final ay = a.tahun ?? 0, by = b.tahun ?? 0;
+          if (ay != by) return ay.compareTo(by);
+          return (a.bulanAngka ?? 0).compareTo(b.bulanAngka ?? 0);
+        });
+        break;
+      case 'ton_desc':
+        filtered.sort((a, b) => b.tonAktual.compareTo(a.tonAktual));
+        break;
+      case 'ton_asc':
+        filtered.sort((a, b) => a.tonAktual.compareTo(b.tonAktual));
+        break;
+    }
+    return filtered;
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() => _searchQuery = '');
+  }
+
+  void _showYearPicker() {
+    final years = <int>[];
+    // Collect years from data
+    final allYears = (_data ?? []).map((p) => p.tahun).whereType<int>().toSet().toList()..sort();
+    final current = DateTime.now().year;
+    if (allYears.isEmpty) {
+      years.addAll([current - 2, current - 1, current, current + 1]);
+    } else {
+      for (int y = allYears.first - 1; y <= allYears.last + 1; y++) {
+        years.add(y);
+      }
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PickerSheet(
+        title: 'Pilih Tahun',
+        options: years.map((y) => _PickerOption(label: '$y', value: '$y')).toList(),
+        selectedValue: '$_selectedYear',
+        onSelect: (v) {
+          setState(() => _selectedYear = int.parse(v));
+          _savePrefs();
+        },
+      ),
+    );
+  }
+
+  void _showStatusPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PickerSheet(
+        title: 'Filter Status',
+        options: [
+          _PickerOption(label: 'Semua Status', value: ''),
+          _PickerOption(label: 'Normal', value: 'normal', color: AppColors.primary3),
+          _PickerOption(label: 'Warn', value: 'warn', color: AppColors.warn),
+          _PickerOption(label: 'Danger', value: 'danger', color: AppColors.danger),
+        ],
+        selectedValue: _statusFilter ?? '',
+        onSelect: (v) {
+          setState(() => _statusFilter = v.isEmpty ? null : v);
+          _savePrefs();
+        },
+      ),
+    );
+  }
+
+  void _showSortPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PickerSheet(
+        title: 'Urutan',
+        options: const [
+          _PickerOption(label: 'Terbaru', value: 'newest'),
+          _PickerOption(label: 'Terlama', value: 'oldest'),
+          _PickerOption(label: 'Ton ↓ (terbesar)', value: 'ton_desc'),
+          _PickerOption(label: 'Ton ↑ (terkecil)', value: 'ton_asc'),
+        ],
+        selectedValue: _sortBy,
+        onSelect: (v) {
+          setState(() => _sortBy = v);
+          _savePrefs();
+        },
+      ),
+    );
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _selectedYear = DateTime.now().year;
+      _statusFilter = null;
+      _sortBy = 'newest';
+      _searchQuery = '';
+      _searchController.clear();
+    });
+    _savePrefs();
   }
 
   Future<void> _exportPdf() async {
@@ -213,9 +381,9 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
           child: CircularProgressIndicator(color: AppColors.primary));
     }
 
-    final data = _data ?? [];
+    final allData = _data ?? [];
 
-    if (data.isEmpty) {
+    if (allData.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(40),
@@ -246,23 +414,30 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
       );
     }
 
-    final grouped = _groupByMonth(data);
-    final total = data.fold(0.0, (a, b) => a + b.tonAktual);
-    final avg = grouped.isEmpty ? 0.0 : total / grouped.length;
-    final best =
-        grouped.map((m) => m.tonAktual).reduce((a, b) => a > b ? a : b);
-    final multipleEntries = data.length > grouped.length;
+    final data = _applyFilters(allData);
+    // Summary based on all data for selected year (unfiltered by status/search)
+    final yearData = allData.where((p) => p.tahun == _selectedYear).toList();
+    final yearGrouped = _groupByMonth(yearData);
+    final total = yearData.fold(0.0, (a, b) => a + b.tonAktual);
+    final avg = yearGrouped.isEmpty ? 0.0 : total / yearGrouped.length;
+    final best = yearGrouped.isEmpty
+        ? 0.0
+        : yearGrouped.map((m) => m.tonAktual).reduce((a, b) => a > b ? a : b);
+    final multipleEntries = yearData.length > yearGrouped.length;
 
     return RefreshIndicator(
       onRefresh: _loadData,
       color: AppColors.primary,
       child: SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+      padding: const EdgeInsets.fromLTRB(0, 24, 0, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          // ── Header ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
@@ -272,7 +447,7 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
                     Text('Riwayat Panen', style: AppTextStyles.display(22)),
                     const SizedBox(height: 3),
                     Text(
-                      '${grouped.length} bulan · ${data.length} panen · ${widget.lahan.namaLahan}',
+                      '${yearGrouped.length} bulan · ${yearData.length} panen · ${widget.lahan.namaLahan}',
                       style: AppTextStyles.body(13, color: AppColors.textMuted),
                     ),
                   ],
@@ -311,10 +486,93 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
               ),
             ],
           ),
+          ),
           const SizedBox(height: 20),
 
+          // ── Search bar ──
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Cari bulan...',
+                hintStyle: AppTextStyles.body(13, color: AppColors.textLight),
+                prefixIcon:
+                    const Icon(Icons.search_rounded, color: AppColors.textMuted),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded,
+                            color: AppColors.textMuted, size: 20),
+                        onPressed: _clearSearch,
+                      )
+                    : null,
+                filled: true,
+                fillColor: AppColors.surface,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      const BorderSide(color: AppColors.primary3, width: 1.5),
+                ),
+              ),
+              onChanged: (v) => setState(() => _searchQuery = v),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ── Filter chips ──
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                _FilterChipBtn(
+                  label: 'Tahun: $_selectedYear',
+                  selected: true,
+                  onTap: _showYearPicker,
+                ),
+                const SizedBox(width: 8),
+                _FilterChipBtn(
+                  label: 'Status: ${_statusFilter == null ? 'Semua' : _statusFilter![0].toUpperCase() + _statusFilter!.substring(1)}',
+                  selected: _statusFilter != null,
+                  onTap: _showStatusPicker,
+                ),
+                const SizedBox(width: 8),
+                _FilterChipBtn(
+                  label: 'Urut: $_sortLabel',
+                  selected: _sortBy != 'newest',
+                  onTap: _showSortPicker,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // ── Result count ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              data.length == allData.where((p) => p.tahun == _selectedYear).length
+                  ? '${data.length} panen'
+                  : '${data.length} dari ${allData.where((p) => p.tahun == _selectedYear).length} panen',
+              style: AppTextStyles.body(12, color: AppColors.textMuted),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // ── KPI row ──
-          Row(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
             children: [
               Expanded(
                   child: MetricCard(
@@ -338,10 +596,13 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
                       color: AppColors.gold)),
             ],
           ),
+          ),
           const SizedBox(height: 16),
 
-          // ── Chart ──
-          AppCard(
+          // ── Chart (uses year data for consistent view) ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: AppCard(
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,7 +630,7 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
                   ],
                 ),
                 const SizedBox(height: 18),
-                _BarChart(grouped: grouped),
+                _BarChart(grouped: yearGrouped),
                 const SizedBox(height: 12),
                 const Wrap(
                   spacing: 14,
@@ -392,10 +653,13 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
               ],
             ),
           ),
+          ),
           const SizedBox(height: 20),
 
           // ── Detail list ──
-          Row(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('DETAIL PANEN', style: AppTextStyles.label()),
@@ -403,8 +667,66 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
                   style: AppTextStyles.body(11, color: AppColors.textLight)),
             ],
           ),
+          ),
           const SizedBox(height: 12),
-          ...data.map((p) => _RiwayatItem(panen: p, onDeleted: _loadData)),
+
+          if (data.isEmpty && allData.isNotEmpty) ...[
+            // Filtered empty state
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  const SizedBox(height: 24),
+                  Center(
+                    child: Column(
+                      children: [
+                        const Icon(Icons.search_off_rounded,
+                            size: 48, color: AppColors.textLight),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Tidak ada panen yang cocok',
+                          style:
+                              AppTextStyles.display(16, color: AppColors.textMid),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Coba ubah filter atau kata kunci',
+                          style: AppTextStyles.body(13,
+                              color: AppColors.textMuted),
+                        ),
+                        const SizedBox(height: 16),
+                        GestureDetector(
+                          onTap: _resetFilters,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryTint,
+                              borderRadius: BorderRadius.circular(99),
+                              border: Border.all(
+                                  color: AppColors.primary3.withOpacity(0.4)),
+                            ),
+                            child: Text('Reset Filter',
+                                style: AppTextStyles.body(13,
+                                    color: AppColors.primary,
+                                    weight: FontWeight.w600)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: data
+                    .map((p) => _RiwayatItem(panen: p, onDeleted: _loadData))
+                    .toList(),
+              ),
+            ),
         ],
       ),
     ),
@@ -1435,5 +1757,141 @@ class _Legend extends StatelessWidget {
               style: AppTextStyles.body(11,
                   color: AppColors.textMid, weight: FontWeight.w500)),
         ],
+      );
+}
+
+// ─── Filter chip button ───────────────────────────────────────────────────────
+
+class _FilterChipBtn extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterChipBtn({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primaryTint : AppColors.surface,
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(
+              color: selected
+                  ? AppColors.primary3.withOpacity(0.6)
+                  : AppColors.border,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: AppTextStyles.body(
+                  12,
+                  color: selected ? AppColors.primary : AppColors.textMid,
+                  weight: selected ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 16,
+                color: selected ? AppColors.primary : AppColors.textMuted,
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+// ─── Picker option model ──────────────────────────────────────────────────────
+
+class _PickerOption {
+  final String label;
+  final String value;
+  final Color? color;
+
+  const _PickerOption({required this.label, required this.value, this.color});
+}
+
+// ─── Bottom sheet picker ──────────────────────────────────────────────────────
+
+class _PickerSheet extends StatelessWidget {
+  final String title;
+  final List<_PickerOption> options;
+  final String selectedValue;
+  final ValueChanged<String> onSelect;
+
+  const _PickerSheet({
+    required this.title,
+    required this.options,
+    required this.selectedValue,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.bg,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(title, style: AppTextStyles.display(18)),
+            const SizedBox(height: 12),
+            ...options.map((opt) {
+              final isSelected = opt.value == selectedValue;
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: opt.color != null
+                    ? Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: opt.color,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      )
+                    : null,
+                title: Text(
+                  opt.label,
+                  style: AppTextStyles.body(
+                    14,
+                    color: isSelected ? AppColors.primary : AppColors.text,
+                    weight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                  ),
+                ),
+                trailing: isSelected
+                    ? const Icon(Icons.check_rounded,
+                        color: AppColors.primary, size: 20)
+                    : null,
+                onTap: () {
+                  Navigator.pop(context);
+                  onSelect(opt.value);
+                },
+              );
+            }),
+          ],
+        ),
       );
 }
