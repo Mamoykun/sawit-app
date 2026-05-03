@@ -14,6 +14,7 @@ import 'diagnosa_screen.dart';
 import 'jadwal_pupuk_screen.dart';
 import 'perbandingan_screen.dart';
 import 'tips_screen.dart';
+import 'profit_loss_screen.dart';
 
 class BerandaScreen extends StatefulWidget {
   final LahanModel lahan;
@@ -96,6 +97,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
         onOpenJadwalPupuk: _openJadwalPupuk,
         onOpenPerbandingan: _openPerbandingan,
         onOpenTips: _openTips,
+        onOpenProfitLoss: _openProfitLoss,
         showHint: _showHint,
         onDismissHint: _dismissHint,
       ),
@@ -171,6 +173,14 @@ class _BerandaScreenState extends State<BerandaScreen> {
     );
   }
 
+  Future<void> _openProfitLoss() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => ProfitLossScreen(lahan: widget.lahan)),
+    );
+  }
+
 }
 
 class _BerandaContent extends StatelessWidget {
@@ -183,6 +193,7 @@ class _BerandaContent extends StatelessWidget {
   final VoidCallback onOpenJadwalPupuk;
   final VoidCallback onOpenPerbandingan;
   final VoidCallback onOpenTips;
+  final VoidCallback onOpenProfitLoss;
   final bool showHint;
   final VoidCallback onDismissHint;
 
@@ -196,6 +207,7 @@ class _BerandaContent extends StatelessWidget {
     required this.onOpenJadwalPupuk,
     required this.onOpenPerbandingan,
     required this.onOpenTips,
+    required this.onOpenProfitLoss,
     required this.showHint,
     required this.onDismissHint,
   });
@@ -558,10 +570,10 @@ class _BerandaContent extends StatelessWidget {
                 onTap: onOpenTips,
               ),
               _GridIcon(
-                icon: Icons.picture_as_pdf_rounded,
-                label: 'Export PDF',
-                color: AppColors.danger,
-                onTap: onOpenRiwayat,
+                icon: Icons.account_balance_wallet_rounded,
+                label: 'Untung Rugi',
+                color: const Color(0xFF059669),
+                onTap: onOpenProfitLoss,
               ),
             ],
           ),

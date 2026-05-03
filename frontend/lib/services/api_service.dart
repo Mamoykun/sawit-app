@@ -460,4 +460,22 @@ class ApiService {
     final res = await _dio.get('/payments/order/$orderId');
     return PaymentModel.fromJson(res.data['data']);
   }
+
+  // ─── DASHBOARD: PROFIT & LOSS ─────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getProfitLoss(int lahanId, {int? year}) async {
+    final res = await _dio.get(
+      '/lahan/$lahanId/profit-loss',
+      queryParameters: year != null ? {'year': year} : null,
+    );
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getPortfolio({int? year}) async {
+    final res = await _dio.get(
+      '/portfolio',
+      queryParameters: year != null ? {'year': year} : null,
+    );
+    return res.data['data'] as Map<String, dynamic>;
+  }
 }

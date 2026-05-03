@@ -10,6 +10,7 @@ import '../widgets/offline_banner.dart';
 import '../widgets/sawit_logo.dart';
 import 'main_screen.dart';
 import 'login_screen.dart';
+import 'portfolio_screen.dart';
 
 class LahanScreen extends StatefulWidget {
   const LahanScreen({super.key});
@@ -118,6 +119,14 @@ class _LahanScreenState extends State<LahanScreen> {
         ],
       ),
       actions: [
+        IconButton(
+          icon: const Icon(Icons.dashboard_rounded, color: Colors.white70),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PortfolioScreen()),
+          ),
+          tooltip: 'Dashboard Semua Kebun',
+        ),
         IconButton(
           icon: const Icon(Icons.logout_rounded, color: Colors.white70),
           onPressed: _logout,
