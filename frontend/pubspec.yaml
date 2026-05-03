@@ -35,6 +35,8 @@ dependencies:
   drift: ^2.18.0
   drift_flutter: ^0.2.0
   connectivity_plus: ^6.0.3
+  # File sharing
+  share_plus: ^10.1.2
 
 dev_dependencies:
   flutter_test:

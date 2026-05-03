@@ -16,6 +16,7 @@ import 'perbandingan_screen.dart';
 import 'tips_screen.dart';
 import 'profit_loss_screen.dart';
 import 'production_analytics_screen.dart';
+import 'laporan_screen.dart';
 
 class BerandaScreen extends StatefulWidget {
   final LahanModel lahan;
@@ -100,6 +101,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
         onOpenTips: _openTips,
         onOpenProfitLoss: _openProfitLoss,
         onOpenAnalytics: _openAnalytics,
+        onOpenLaporan: _openLaporan,
         showHint: _showHint,
         onDismissHint: _dismissHint,
       ),
@@ -191,6 +193,14 @@ class _BerandaScreenState extends State<BerandaScreen> {
     );
   }
 
+  Future<void> _openLaporan() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => LaporanScreen(lahan: widget.lahan)),
+    );
+  }
+
 }
 
 class _BerandaContent extends StatelessWidget {
@@ -205,6 +215,7 @@ class _BerandaContent extends StatelessWidget {
   final VoidCallback onOpenTips;
   final VoidCallback onOpenProfitLoss;
   final VoidCallback onOpenAnalytics;
+  final VoidCallback onOpenLaporan;
   final bool showHint;
   final VoidCallback onDismissHint;
 
@@ -220,6 +231,7 @@ class _BerandaContent extends StatelessWidget {
     required this.onOpenTips,
     required this.onOpenProfitLoss,
     required this.onOpenAnalytics,
+    required this.onOpenLaporan,
     required this.showHint,
     required this.onDismissHint,
   });
@@ -592,6 +604,12 @@ class _BerandaContent extends StatelessWidget {
                 label: 'Analisa Produksi',
                 color: const Color(0xFF2563EB),
                 onTap: onOpenAnalytics,
+              ),
+              _GridIcon(
+                icon: Icons.picture_as_pdf_rounded,
+                label: 'Cetak Laporan',
+                color: const Color(0xFFDC2626),
+                onTap: onOpenLaporan,
               ),
             ],
           ),
