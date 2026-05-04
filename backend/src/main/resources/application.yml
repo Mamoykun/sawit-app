@@ -46,8 +46,11 @@ jwt:
 
 claude:
   api-key: ${CLAUDE_API_KEY:}
-  model: ${CLAUDE_MODEL:claude-sonnet-4-20250514}
+  model:
+    haiku: ${CLAUDE_MODEL_HAIKU:claude-haiku-4-5-20251001}
+    sonnet: ${CLAUDE_MODEL_SONNET:claude-sonnet-4-20250514}
   max-tokens: 2048
+  cache-ttl-days: 30
 
 # Midtrans payment gateway
 # Sandbox: register at https://dashboard.sandbox.midtrans.com/register

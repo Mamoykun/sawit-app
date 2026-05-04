@@ -6,6 +6,7 @@ import com.sawitku.dto.request.UpdateProfileRequest;
 import com.sawitku.dto.response.ApiResponse;
 import com.sawitku.dto.response.AuthResponse;
 import com.sawitku.entity.User;
+import com.sawitku.service.AiUsageService;
 import com.sawitku.service.UserService;
 import com.sawitku.util.ResponseUtil;
 import jakarta.validation.Valid;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserService userService;
+    private final AiUsageService aiUsageService;
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<AuthResponse.UserInfo>> getProfile(
@@ -56,5 +58,12 @@ public class UserController {
     public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> exportData(
             @AuthenticationPrincipal User user) {
         return ResponseUtil.ok(userService.exportUserData(user));
+    }
+
+    /// AI usage stats for the authenticated user (current billing period).
+    @GetMapping("/me/ai-usage")
+    public ResponseEntity<ApiResponse<AiUsageService.AiUsageStats>> getAiUsage(
+            @AuthenticationPrincipal User user) {
+        return ResponseUtil.ok(aiUsageService.getStats(user.getId()));
     }
 }

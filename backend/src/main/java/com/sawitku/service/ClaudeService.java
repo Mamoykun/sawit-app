@@ -15,6 +15,9 @@ import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -24,12 +27,24 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class ClaudeService {
 
+    // ─── Model routing enum ───────────────────────────────────────────────────
+    public enum ClaudeModel { HAIKU, SONNET }
+
+    // ─── Result record (public so LocalAdvisorService can reference it) ───────
+    public static record AnalisaResult(
+            List<AnalisaResponse.PenyebabItem> penyebab,
+            String ringkasan,
+            String prioritas) {}
+
+    // ─── Dependencies ─────────────────────────────────────────────────────────
     private final AnalisaRepository analisaRepository;
     private final SubscriptionService subscriptionService;
     private final ObjectMapper objectMapper;
     private final PanenRepository panenRepository;
     private final BiayaRepository biayaRepository;
     private final WeatherService weatherService;
+    private final LocalAdvisorService localAdvisorService;
+    private final AiUsageService aiUsageService;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private RedisTemplate<String, String> redisTemplate;
@@ -39,43 +54,137 @@ public class ClaudeService {
                          ObjectMapper objectMapper,
                          PanenRepository panenRepository,
                          BiayaRepository biayaRepository,
-                         WeatherService weatherService) {
+                         WeatherService weatherService,
+                         LocalAdvisorService localAdvisorService,
+                         AiUsageService aiUsageService) {
         this.analisaRepository = analisaRepository;
         this.subscriptionService = subscriptionService;
         this.objectMapper = objectMapper;
         this.panenRepository = panenRepository;
         this.biayaRepository = biayaRepository;
         this.weatherService = weatherService;
+        this.localAdvisorService = localAdvisorService;
+        this.aiUsageService = aiUsageService;
     }
 
     @Value("${claude.api-key}")
     private String apiKey;
 
-    @Value("${claude.model}")
-    private String model;
+    @Value("${claude.model.haiku}")
+    private String haikuModel;
+
+    @Value("${claude.model.sonnet}")
+    private String sonnetModel;
 
     @Value("${claude.max-tokens}")
     private int maxTokens;
 
+    @Value("${claude.cache-ttl-days:30}")
+    private int cacheTtlDays;
+
     private static final String CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
+
+    // ─── Main analysis entry point ────────────────────────────────────────────
 
     @Async
     public void analyzePanen(Panen panen, Lahan lahan) {
-        String cacheKey = "analisa:" + panen.getId();
+        Long userId = lahan.getUser().getId();
+
+        // Build cache key from data hash (not panen.id — allows deduplication)
+        String hashInput = String.join("|",
+                String.valueOf(panen.getTonAktual()),
+                String.valueOf(lahan.getId()),
+                String.valueOf(lahan.getUsiaPohon()),
+                String.valueOf(panen.getBulanAngka()),
+                String.valueOf(panen.getTahun()),
+                lahan.getLokasi() != null ? lahan.getLokasi() : "");
+        String cacheKey = "analisa:hash:" + sha256Hex(hashInput);
+
         try {
-            subscriptionService.checkLimitAnalisaAI(lahan.getUser().getId());
+            // 1. Cache hit check
+            if (redisTemplate != null) {
+                String cached = redisTemplate.opsForValue().get(cacheKey);
+                if (cached != null && cached.length() > 10) {
+                    log.debug("Cache hit for panen {} (key={})", panen.getId(), cacheKey);
+                    try {
+                        AnalisaResult result = parseResponse(cached);
+                        saveAnalisa(panen, lahan, result, cached);
+                        return;
+                    } catch (Exception e) {
+                        log.debug("Cache parse failed, proceeding with fresh call: {}", e.getMessage());
+                    }
+                }
+            }
+
+            // 2. Subscription limit check
+            subscriptionService.checkLimitAnalisaAI(userId);
+
+            // 3. Budget cap check
+            if (!aiUsageService.canSpend(userId)) {
+                log.info("User {} exceeded AI budget cap — using local fallback", userId);
+                saveFallbackAnalisa(panen, lahan);
+                return;
+            }
+
+            // 4. Load history for routing
+            List<Panen> history = loadHistory(panen, lahan);
+
+            // 5. Build prompt + route model
             String prompt = buildPrompt(panen, lahan);
-            String rawResponse = callClaudeApi(prompt);
+            ClaudeModel model = selectModelFor(panen, lahan, history);
+
+            // 6. Call Claude
+            String rawResponse = callClaudeApi(prompt, model, userId);
+
+            // 7. Parse, save, increment
             AnalisaResult result = parseResponse(rawResponse);
             saveAnalisa(panen, lahan, result, rawResponse);
-            subscriptionService.incrementAnalisaCount(lahan.getUser().getId());
-            if (redisTemplate != null) redisTemplate.opsForValue().set(cacheKey, "DONE", 7, TimeUnit.DAYS);
+            subscriptionService.incrementAnalisaCount(userId);
+
+            // 8. Cache raw response
+            if (redisTemplate != null) {
+                redisTemplate.opsForValue().set(
+                        cacheKey, rawResponse,
+                        cacheTtlDays * 24L * 60L * 60L, TimeUnit.SECONDS);
+            }
+
         } catch (Exception e) {
-            log.error("Claude API error untuk panen {}: {}", panen.getId(), e.getMessage());
+            log.error("Claude API error for panen {}: {}", panen.getId(), e.getMessage());
             saveFallbackAnalisa(panen, lahan);
-            if (redisTemplate != null) redisTemplate.opsForValue().set(cacheKey, "DONE", 7, TimeUnit.DAYS);
         }
     }
+
+    // ─── Model routing ────────────────────────────────────────────────────────
+
+    public ClaudeModel selectModelFor(Panen panen, Lahan lahan, List<Panen> history) {
+        // Simple cases → Haiku (cheaper)
+        if (panen.getStatusPanen() == null || StatusPanen.NORMAL == panen.getStatusPanen())
+            return ClaudeModel.HAIKU;
+        if (history.size() < 3)
+            return ClaudeModel.HAIKU;
+        if (panen.getPersenKurang() != null && panen.getPersenKurang().doubleValue() < 10.0)
+            return ClaudeModel.HAIKU;
+
+        // Complex cases → Sonnet (better reasoning)
+        if (panen.getPersenKurang() != null && panen.getPersenKurang().doubleValue() > 25.0)
+            return ClaudeModel.SONNET;
+        if (history.size() >= 3 && isDecreasingTrend(history))
+            return ClaudeModel.SONNET;
+
+        return ClaudeModel.HAIKU;
+    }
+
+    private boolean isDecreasingTrend(List<Panen> history) {
+        if (history.size() < 3) return false;
+        // history is sorted newest-first
+        for (int i = 0; i < 2; i++) {
+            if (history.get(i).getTonAktual().compareTo(history.get(i + 1).getTonAktual()) >= 0)
+                return false;
+        }
+        return true;
+    }
+
+    // ─── Prompt construction ──────────────────────────────────────────────────
 
     private String buildPrompt(Panen panen, Lahan lahan) {
         var target = AnalisaCalculator.getTarget(lahan.getLuasHa().doubleValue(), lahan.getUsiaPohon());
@@ -83,7 +192,6 @@ public class ClaudeService {
 
         sb.append("Kamu adalah ahli agronomi perkebunan sawit Indonesia berpengalaman 20 tahun.\n\n");
 
-        // --- Base: kebun profile ---
         sb.append("Data kebun:\n");
         sb.append("- Nama lahan: ").append(lahan.getNamaLahan()).append("\n");
         sb.append("- Luas: ").append(lahan.getLuasHa()).append(" hektar\n");
@@ -91,35 +199,25 @@ public class ClaudeService {
         sb.append("- Fase produksi: ").append(target.fase()).append("\n");
         sb.append("- Lokasi: ").append(lahan.getLokasi() != null ? lahan.getLokasi() : "Tidak diketahui").append("\n\n");
 
-        // --- Base: current panen ---
         sb.append("Data panen ").append(panen.getBulan()).append(" ").append(panen.getTahun()).append(":\n");
         sb.append("- Hasil aktual: ").append(panen.getTonAktual()).append(" ton\n");
         sb.append("- Target normal: ").append(panen.getTargetMin()).append(" - ").append(panen.getTargetMax()).append(" ton\n");
         sb.append("- Kekurangan: ").append(panen.getPersenKurang()).append("% dari target\n");
 
-        // --- Optional: panen trend (last 6 months, skip if size < 2) ---
+        // Panen trend
         try {
             List<Panen> riwayat = panenRepository.findByLahanIdOrderByTahunDescBulanAngkaDesc(
-                lahan.getId(), PageRequest.of(0, 6));
-            // Filter out the current panen entry itself
+                    lahan.getId(), PageRequest.of(0, 6));
             List<Panen> history = riwayat.stream()
-                .filter(p -> !p.getId().equals(panen.getId()))
-                .toList();
+                    .filter(p -> !p.getId().equals(panen.getId()))
+                    .toList();
             if (history.size() >= 1) {
                 sb.append("\nTren panen ").append(history.size()).append(" bulan terakhir:\n");
                 for (Panen p : history) {
                     double aktual = p.getTonAktual().doubleValue();
-                    double minT = p.getTargetMin().doubleValue();
-                    double maxT = p.getTargetMax().doubleValue();
+                    double minT   = p.getTargetMin().doubleValue();
                     double kurang = p.getPersenKurang() != null ? p.getPersenKurang().doubleValue() : 0;
-                    String status;
-                    if (aktual >= minT) {
-                        status = "✓";
-                    } else if (kurang <= 20) {
-                        status = "⚠";
-                    } else {
-                        status = "❌";
-                    }
+                    String status = aktual >= minT ? "✓" : kurang <= 20 ? "⚠" : "❌";
                     sb.append("- ").append(p.getBulan()).append(" ").append(p.getTahun())
                       .append(": ").append(p.getTonAktual()).append(" ton")
                       .append(" (target ").append(p.getTargetMin()).append("-").append(p.getTargetMax()).append(")")
@@ -130,21 +228,21 @@ public class ClaudeService {
             log.debug("Gagal memuat riwayat panen untuk prompt: {}", e.getMessage());
         }
 
-        // --- Optional: fertilizer history (last 6 months) ---
+        // Fertilizer history
         try {
             LocalDate now = LocalDate.now();
             LocalDate since = now.minusMonths(6);
             List<Biaya> pupuk = biayaRepository.findByLahanIdAndKategoriRecent(
-                lahan.getId(), KategoriBiaya.PUPUK, since.getYear(), since.getMonthValue());
+                    lahan.getId(), KategoriBiaya.PUPUK, since.getYear(), since.getMonthValue());
             if (!pupuk.isEmpty()) {
                 sb.append("\nRiwayat pemupukan ").append(Math.min(pupuk.size(), 6)).append(" bulan terakhir:\n");
                 int limit = Math.min(pupuk.size(), 6);
                 for (int i = 0; i < limit; i++) {
                     Biaya b = pupuk.get(i);
-                    String keterangan = (b.getKeterangan() != null && !b.getKeterangan().isBlank())
-                        ? b.getKeterangan() : "Pupuk";
+                    String ket = (b.getKeterangan() != null && !b.getKeterangan().isBlank())
+                            ? b.getKeterangan() : "Pupuk";
                     sb.append("- ").append(b.getBulan()).append(" ").append(b.getTahun())
-                      .append(": ").append(keterangan)
+                      .append(": ").append(ket)
                       .append(" Rp ").append(String.format("%,.0f", b.getJumlah().doubleValue()))
                       .append("\n");
                 }
@@ -153,7 +251,7 @@ public class ClaudeService {
             log.debug("Gagal memuat riwayat pemupukan untuk prompt: {}", e.getMessage());
         }
 
-        // --- Optional: weather summary ---
+        // Weather summary
         try {
             Optional<WeatherService.WeatherSummary> weatherOpt = weatherService.getSummary(lahan.getLokasi());
             weatherOpt.ifPresent(ws -> {
@@ -178,87 +276,138 @@ public class ClaudeService {
         return sb.toString();
     }
 
-    private String callClaudeApi(String prompt) {
+    // ─── Claude API call ──────────────────────────────────────────────────────
+
+    @SuppressWarnings("unchecked")
+    private String callClaudeApi(String prompt, ClaudeModel model, Long userId) {
         RestTemplate rest = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         headers.set("x-api-key", apiKey);
         headers.set("anthropic-version", "2023-06-01");
         headers.setContentType(MediaType.APPLICATION_JSON);
 
+        String modelId = model == ClaudeModel.HAIKU ? haikuModel : sonnetModel;
+
         Map<String, Object> body = Map.of(
-            "model", model,
-            "max_tokens", maxTokens,
-            "messages", List.of(Map.of("role", "user", "content", prompt))
+                "model", modelId,
+                "max_tokens", maxTokens,
+                "messages", List.of(Map.of("role", "user", "content", prompt))
         );
 
         ResponseEntity<Map> response = rest.exchange(
-            CLAUDE_API_URL, HttpMethod.POST, new HttpEntity<>(body, headers), Map.class);
+                CLAUDE_API_URL, HttpMethod.POST, new HttpEntity<>(body, headers), Map.class);
 
-        List<Map<String, Object>> content = (List<Map<String, Object>>) response.getBody().get("content");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> responseBody = (Map<String, Object>) response.getBody();
+
+        // Extract and record token usage
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> usage = (Map<String, Object>) responseBody.get("usage");
+            if (usage != null) {
+                int inputTokens  = ((Number) usage.getOrDefault("input_tokens",  0)).intValue();
+                int outputTokens = ((Number) usage.getOrDefault("output_tokens", 0)).intValue();
+                aiUsageService.record(userId, model, inputTokens, outputTokens);
+            }
+        } catch (Exception e) {
+            log.debug("Failed to extract usage from Claude response: {}", e.getMessage());
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> content = (List<Map<String, Object>>) responseBody.get("content");
         return (String) content.get(0).get("text");
     }
 
-    private record AnalisaResult(List<AnalisaResponse.PenyebabItem> penyebab, String ringkasan, String prioritas) {}
+    // ─── Response parsing + persistence ──────────────────────────────────────
 
-    private AnalisaResult parseResponse(String raw) throws Exception {
+    @SuppressWarnings("unchecked")
+    public AnalisaResult parseResponse(String raw) throws Exception {
         Map<String, Object> parsed = objectMapper.readValue(raw.trim(), Map.class);
         List<Map<String, Object>> penyebabList = (List<Map<String, Object>>) parsed.get("penyebab");
         List<AnalisaResponse.PenyebabItem> items = penyebabList.stream()
-            .map(p -> AnalisaResponse.PenyebabItem.builder()
-                .icon((String) p.get("icon")).title((String) p.get("title"))
-                .detail((String) p.get("detail")).severity((String) p.get("severity"))
-                .estimasiDampak((String) p.getOrDefault("estimasi_dampak", "")).build())
-            .toList();
-        return new AnalisaResult(items, (String) parsed.get("ringkasan"), (String) parsed.get("prioritas_tindakan"));
+                .map(p -> AnalisaResponse.PenyebabItem.builder()
+                        .icon((String) p.get("icon"))
+                        .title((String) p.get("title"))
+                        .detail((String) p.get("detail"))
+                        .severity((String) p.get("severity"))
+                        .estimasiDampak((String) p.getOrDefault("estimasi_dampak", ""))
+                        .build())
+                .toList();
+        return new AnalisaResult(items,
+                (String) parsed.get("ringkasan"),
+                (String) parsed.get("prioritas_tindakan"));
     }
 
     private void saveAnalisa(Panen panen, Lahan lahan, AnalisaResult result, String raw) throws Exception {
         String penyebabJson = objectMapper.writeValueAsString(result.penyebab());
         Analisa analisa = Analisa.builder()
-            .panen(panen).lahan(lahan)
-            .penyebabJson(penyebabJson)
-            .rekomendasi(result.prioritas())
-            .aiResponseRaw(raw)
-            .createdAt(LocalDateTime.now()).build();
+                .panen(panen).lahan(lahan)
+                .penyebabJson(penyebabJson)
+                .rekomendasi(result.prioritas())
+                .aiResponseRaw(raw)
+                .createdAt(LocalDateTime.now())
+                .build();
         analisaRepository.save(analisa);
     }
 
+    // ─── Fallback (rule-based, no subscription increment) ────────────────────
+
     private void saveFallbackAnalisa(Panen panen, Lahan lahan) {
         try {
-            double persen = panen.getPersenKurang().doubleValue();
-            List<AnalisaResponse.PenyebabItem> items = getFallbackPenyebab(persen);
-            String penyebabJson = objectMapper.writeValueAsString(items);
-            Analisa analisa = Analisa.builder()
-                .panen(panen).lahan(lahan)
-                .penyebabJson(penyebabJson)
-                .rekomendasi("Periksa kondisi lahan dan lakukan tindakan pemupukan rutin.")
-                .aiResponseRaw("FALLBACK")
-                .createdAt(LocalDateTime.now()).build();
-            analisaRepository.save(analisa);
+            List<Panen> history = loadHistory(panen, lahan);
+            List<Biaya> recentBiaya = loadRecentPupuk(lahan);
+            AnalisaResult result = localAdvisorService.buildFallback(panen, lahan, history, recentBiaya);
+            saveAnalisa(panen, lahan, result, "LOCAL_FALLBACK");
         } catch (Exception e) {
             log.error("Fallback analisa gagal: {}", e.getMessage());
         }
     }
 
-    private List<AnalisaResponse.PenyebabItem> getFallbackPenyebab(double persen) {
-        List<AnalisaResponse.PenyebabItem> list = new ArrayList<>();
-        if (persen > 8) list.add(item("eco", "Defisiensi Kalium (K)", "Aplikasikan pupuk MOP 0.5–1 kg per pohon. Kalium meningkatkan bobot tandan dan kualitas minyak sawit.", "high", "8-15%"));
-        if (persen > 15) list.add(item("water", "Stres Kekeringan", "Pasang mulsa pelepah di piringan pohon radius 2 meter untuk menjaga kelembaban tanah di musim kering.", "high", "10-20%"));
-        if (persen > 20) list.add(item("bug", "Serangan Hama / Penyakit", "Periksa tanda ulat api, kumbang badak, atau gejala Ganoderma di pangkal batang pohon.", "medium", "5-15%"));
-        if (list.isEmpty()) list.add(item("thermostat", "Faktor Musiman Normal", "Fluktuasi 1–8% masih dalam batas wajar akibat perubahan cuaca dan siklus alami tanaman sawit.", "low", "1-8%"));
-        return list;
+    // ─── History + biaya helpers ──────────────────────────────────────────────
+
+    private List<Panen> loadHistory(Panen panen, Lahan lahan) {
+        try {
+            List<Panen> riwayat = panenRepository.findByLahanIdOrderByTahunDescBulanAngkaDesc(
+                    lahan.getId(), PageRequest.of(0, 6));
+            return riwayat.stream()
+                    .filter(p -> !p.getId().equals(panen.getId()))
+                    .toList();
+        } catch (Exception e) {
+            log.debug("loadHistory failed: {}", e.getMessage());
+            return List.of();
+        }
     }
 
-    private AnalisaResponse.PenyebabItem item(String icon, String title, String detail, String severity, String dampak) {
-        return AnalisaResponse.PenyebabItem.builder()
-            .icon(icon).title(title).detail(detail).severity(severity).estimasiDampak(dampak).build();
+    private List<Biaya> loadRecentPupuk(Lahan lahan) {
+        try {
+            LocalDate since = LocalDate.now().minusMonths(6);
+            return biayaRepository.findByLahanIdAndKategoriRecent(
+                    lahan.getId(), KategoriBiaya.PUPUK, since.getYear(), since.getMonthValue());
+        } catch (Exception e) {
+            log.debug("loadRecentPupuk failed: {}", e.getMessage());
+            return List.of();
+        }
     }
 
-    // ─── VISUAL DIAGNOSA (Claude Vision) ─────────────────────────────────────
+    // ─── SHA-256 cache key helper ─────────────────────────────────────────────
+
+    private String sha256Hex(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (Exception e) {
+            return Integer.toHexString(input.hashCode());
+        }
+    }
+
+    // ─── VISUAL DIAGNOSA (Claude Vision — always uses sonnet) ─────────────────
 
     public record VisualDiagnosaResult(
-        String kondisi, String penyebab, String rekomendasi,
-        String severity, boolean isFallback) {}
+            String kondisi, String penyebab, String rekomendasi,
+            String severity, boolean isFallback) {}
 
     public VisualDiagnosaResult analyzeImage(String imageBase64, String jenis,
                                               com.sawitku.entity.Lahan lahan) {
@@ -274,12 +423,12 @@ public class ClaudeService {
 
     private String buildVisualPrompt(String jenis, com.sawitku.entity.Lahan lahan) {
         String konteks = "Konteks kebun: luas %s ha, usia pohon %d tahun".formatted(
-            lahan.getLuasHa(), lahan.getUsiaPohon());
+                lahan.getLuasHa(), lahan.getUsiaPohon());
         String fokus = switch (jenis) {
-            case "BUAH" -> "Foto ini adalah BUAH/TANDAN sawit. Fokus pada: kematangan (mentah/matang/lewat matang), warna brondolan, ukuran tandan, kerusakan fisik, indikasi serangan hama.";
+            case "BUAH"   -> "Foto ini adalah BUAH/TANDAN sawit. Fokus pada: kematangan (mentah/matang/lewat matang), warna brondolan, ukuran tandan, kerusakan fisik, indikasi serangan hama.";
             case "BATANG" -> "Foto ini adalah BATANG/POHON sawit. Fokus pada: kondisi pangkal batang, tanda penyakit Ganoderma (jamur putih/akar busuk), kerusakan kumbang, retak/luka.";
-            case "PELEPAH" -> "Foto ini adalah PELEPAH/DAUN sawit. Fokus pada: warna daun (defisiensi nutrisi), bercak penyakit, serangan ulat api, kekurangan air, gejala defisiensi Mg/N/K.";
-            default -> "Analisa kondisi tanaman sawit pada foto ini.";
+            case "PELEPAH"-> "Foto ini adalah PELEPAH/DAUN sawit. Fokus pada: warna daun (defisiensi nutrisi), bercak penyakit, serangan ulat api, kekurangan air, gejala defisiensi Mg/N/K.";
+            default       -> "Analisa kondisi tanaman sawit pada foto ini.";
         };
         return """
             Kamu adalah ahli agronomi sawit Indonesia berpengalaman 20 tahun.
@@ -311,31 +460,26 @@ public class ClaudeService {
         headers.set("anthropic-version", "2023-06-01");
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        String mediaType = imageBase64.startsWith("/9j/") ? "image/jpeg"
-                          : imageBase64.startsWith("iVBOR") ? "image/png"
-                          : "image/jpeg";
+        String mediaType = imageBase64.startsWith("/9j/")   ? "image/jpeg"
+                         : imageBase64.startsWith("iVBOR") ? "image/png"
+                         : "image/jpeg";
 
         Map<String, Object> imageContent = Map.of(
-            "type", "image",
-            "source", Map.of(
-                "type", "base64",
-                "media_type", mediaType,
-                "data", imageBase64
-            )
+                "type", "image",
+                "source", Map.of("type", "base64", "media_type", mediaType, "data", imageBase64)
         );
         Map<String, Object> textContent = Map.of("type", "text", "text", prompt);
 
+        // Vision always uses Sonnet (requires vision capability)
         Map<String, Object> body = Map.of(
-            "model", model,
-            "max_tokens", maxTokens,
-            "messages", List.of(Map.of(
-                "role", "user",
-                "content", List.of(imageContent, textContent)
-            ))
+                "model", sonnetModel,
+                "max_tokens", maxTokens,
+                "messages", List.of(Map.of("role", "user",
+                        "content", List.of(imageContent, textContent)))
         );
 
         ResponseEntity<Map> response = rest.exchange(
-            CLAUDE_API_URL, HttpMethod.POST, new HttpEntity<>(body, headers), Map.class);
+                CLAUDE_API_URL, HttpMethod.POST, new HttpEntity<>(body, headers), Map.class);
 
         List<Map<String, Object>> content = (List<Map<String, Object>>) response.getBody().get("content");
         return (String) content.get(0).get("text");
@@ -347,16 +491,15 @@ public class ClaudeService {
         String severity = (String) parsed.getOrDefault("severity", "NORMAL");
         if (!List.of("NORMAL", "PERHATIAN", "KRITIS").contains(severity)) severity = "NORMAL";
         return new VisualDiagnosaResult(
-            (String) parsed.getOrDefault("kondisi", ""),
-            (String) parsed.getOrDefault("penyebab", ""),
-            (String) parsed.getOrDefault("rekomendasi", ""),
-            severity, false
-        );
+                (String) parsed.getOrDefault("kondisi", ""),
+                (String) parsed.getOrDefault("penyebab", ""),
+                (String) parsed.getOrDefault("rekomendasi", ""),
+                severity, false);
     }
 
     private VisualDiagnosaResult getFallbackVisualResult(String jenis) {
         return switch (jenis) {
-            case "BUAH" -> new VisualDiagnosaResult(
+            case "BUAH"   -> new VisualDiagnosaResult(
                 "Tidak dapat menganalisa foto secara otomatis saat ini.",
                 "Layanan diagnosa AI sedang sibuk atau gambar tidak jelas.",
                 "Pastikan panen saat tandan matang penuh: brondolan jatuh 5-10 buah/tandan, warna oranye-kemerahan, tandan padat. Hindari panen mentah karena rendemen minyak rendah.",
@@ -366,12 +509,12 @@ public class ClaudeService {
                 "Layanan diagnosa AI sedang sibuk atau gambar tidak jelas.",
                 "Periksa pangkal batang dari tanda Ganoderma (jamur putih, akar busuk berwarna coklat). Jika ada gejala, isolasi pohon dan konsultasi penyuluh. Hindari pelukaan batang saat panen.",
                 "PERHATIAN", true);
-            case "PELEPAH" -> new VisualDiagnosaResult(
+            case "PELEPAH"-> new VisualDiagnosaResult(
                 "Tidak dapat menganalisa foto secara otomatis saat ini.",
                 "Layanan diagnosa AI sedang sibuk atau gambar tidak jelas.",
                 "Pelepah menguning bisa menandakan defisiensi: Mg (menguning antar tulang daun), N (menguning seluruh daun), atau K (bercak oranye di pinggir). Aplikasikan pupuk sesuai gejala dan dosis standar PPKS.",
                 "PERHATIAN", true);
-            default -> new VisualDiagnosaResult(
+            default       -> new VisualDiagnosaResult(
                 "Tidak dapat menganalisa foto.",
                 "Foto tidak teridentifikasi.",
                 "Coba ambil foto lebih jelas dengan pencahayaan cukup.",
