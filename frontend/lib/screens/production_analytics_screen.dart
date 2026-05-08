@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/lahan_model.dart';
@@ -54,6 +55,16 @@ class _ProductionAnalyticsScreenState
     return [y - 3, y - 2, y - 1, y, y + 1, y + 2];
   }
 
+  /// Recompute status from aggregated tonAktual vs targetMin.
+  /// Formula mirrors PanenRepository.create: persenKurang relative to targetMin.
+  static String _computeStatus(double tonAktual, double targetMin) {
+    if (tonAktual >= targetMin) return 'normal';
+    final persen = targetMin > 0
+        ? max(0.0, (targetMin - tonAktual) / targetMin * 100)
+        : 0.0;
+    return persen <= 20 ? 'warn' : 'danger';
+  }
+
   /// Months filtered to selected year, indexed 0–11 (Jan=0, Des=11).
   Map<int, _MonthData> get _monthMap {
     final data = _allData ?? [];
@@ -64,15 +75,16 @@ class _ProductionAnalyticsScreenState
       if (idx < 0 || idx > 11) continue;
       if (map.containsKey(idx)) {
         final e = map[idx]!;
+        final sumTon = e.tonAktual + p.tonAktual;
         map[idx] = _MonthData(
           monthIdx: idx,
           bulan: e.bulan,
-          tonAktual: e.tonAktual + p.tonAktual,
+          tonAktual: sumTon,
           targetMin: e.targetMin,
           targetMid: e.targetMid,
           targetMax: e.targetMax,
           luasHa: p.luasHa,
-          status: p.status,
+          status: _computeStatus(sumTon, e.targetMin),
         );
       } else {
         map[idx] = _MonthData(
@@ -83,7 +95,7 @@ class _ProductionAnalyticsScreenState
           targetMid: p.targetMid,
           targetMax: p.targetMax,
           luasHa: p.luasHa,
-          status: p.status,
+          status: _computeStatus(p.tonAktual, p.targetMin),
         );
       }
     }

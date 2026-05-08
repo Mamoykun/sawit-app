@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/panen_model.dart';
@@ -46,8 +47,7 @@ class _MainScreenState extends State<MainScreen> {
     try {
       final panenRepo = PanenRepository(db: appDb, api: ApiService());
       final biayaRepo = BiayaRepository(db: appDb, api: ApiService());
-      // Ambil sampai 6 bulan riwayat untuk hint metadata, panen pertama
-      // tetap dipakai sebagai analisa terakhir.
+      // Ambil sampai 6 record riwayat — bisa ada >1 record per bulan.
       final list = await panenRepo.getByLahan(widget.lahan.id, limit: 6);
       if (!mounted) return;
       if (list.isEmpty) {
@@ -63,12 +63,49 @@ class _MainScreenState extends State<MainScreen> {
       final hasPupuk = biayaList.any(
           (b) => b.kategori == KategoriBiaya.pupuk);
 
-      final last = list.first;
-      final penyebab = last.analisa?.penyebab.isNotEmpty == true
-          ? last.analisa!.penyebab
-          : AnalisaService.getPenyebab(last.persenKurang);
+      // Aggregate all records for the latest month — user may have input panen 2x.
+      final latestKey = '${list.first.bulan}-${list.first.tahun}';
+      final sameMonth = list
+          .where((p) => '${p.bulan}-${p.tahun}' == latestKey)
+          .toList();
+      final totalTon = sameMonth.fold<double>(0, (s, p) => s + p.tonAktual);
+      final base = sameMonth.first;
+
+      // Recompute status from aggregate — same formula as PanenRepository.create.
+      final persenKurang = totalTon < base.targetMin
+          ? max(0.0, (base.targetMin - totalTon) / base.targetMin * 100)
+          : 0.0;
+      final newStatus = totalTon >= base.targetMin
+          ? 'NORMAL'
+          : persenKurang <= 20
+              ? 'WARN'
+              : 'DANGER';
+
+      final aggregated = PanenModel(
+        id: base.id,
+        lahanId: base.lahanId,
+        namaLahan: base.namaLahan,
+        luasHa: base.luasHa,
+        usiaTahun: base.usiaTahun,
+        tonAktual: totalTon,
+        targetMin: base.targetMin,
+        targetMax: base.targetMax,
+        targetMid: base.targetMid,
+        bulan: base.bulan,
+        tahun: base.tahun,
+        bulanAngka: base.bulanAngka,
+        tanggal: base.tanggal,
+        hargaPerTon: base.hargaPerTon,
+        statusPanen: newStatus,
+        persenKurang: persenKurang,
+        analisa: base.analisa,
+      );
+
+      final penyebab = aggregated.analisa?.penyebab.isNotEmpty == true
+          ? aggregated.analisa!.penyebab
+          : AnalisaService.getPenyebab(persenKurang);
       setState(() {
-        _lastAnalisa = HasilAnalisa(panen: last, penyebab: penyebab);
+        _lastAnalisa = HasilAnalisa(panen: aggregated, penyebab: penyebab);
         _analisaDataInfo = AnalisaDataInfo(
           panenCount: list.length,
           hasPupukData: hasPupuk,
@@ -77,7 +114,7 @@ class _MainScreenState extends State<MainScreen> {
         );
       });
       // If analisa is null (async AI not yet computed), schedule retries.
-      if (last.analisa != null) {
+      if (base.analisa != null) {
         // Analisa already arrived — clear retry guard so next pending case can retry.
         _analisaRetryScheduled = false;
       } else if (!_analisaRetryScheduled) {

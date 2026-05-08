@@ -266,14 +266,26 @@ class _BerandaContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Group history by month for mini-chart
+    // Group history by month — sums multi-record months for correct aggregation.
     final grouped = _groupByMonth(history);
-    final last = history.isNotEmpty ? history.last : null;
-    final prev = history.length >= 2 ? history[history.length - 2] : null;
-    final tren = (last != null && prev != null)
-        ? last.tonAktual - prev.tonAktual
+    // Use aggregated monthly summary for hero card; raw individual records only
+    // exist in the Riwayat screen where per-record edit/delete is needed.
+    final lastMonthSummary = grouped.isNotEmpty ? grouped.last : null;
+    final prevMonthSummary = grouped.length >= 2 ? grouped[grouped.length - 2] : null;
+    final tren = (lastMonthSummary != null && prevMonthSummary != null)
+        ? lastMonthSummary.tonAktual - prevMonthSummary.tonAktual
         : 0.0;
-    final isBelowTarget = last != null && last.tonAktual < last.targetMin;
+    final isBelowTarget = lastMonthSummary != null &&
+        !lastMonthSummary.isNormal;
+    // Derive persenKurang for the alert from aggregated data.
+    final persenKurangAgg = (lastMonthSummary != null &&
+            lastMonthSummary.targetMin > 0 &&
+            !lastMonthSummary.isNormal)
+        ? ((lastMonthSummary.targetMin - lastMonthSummary.tonAktual) /
+                lastMonthSummary.targetMin *
+                100)
+            .clamp(0.0, 100.0)
+        : 0.0;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -311,7 +323,7 @@ class _BerandaContent extends StatelessWidget {
           const SizedBox(height: 20),
 
           // ── Hero card ──
-          if (last != null) ...[
+          if (lastMonthSummary != null) ...[
             Container(
               padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
@@ -362,7 +374,7 @@ class _BerandaContent extends StatelessWidget {
                           borderRadius: BorderRadius.circular(99),
                         ),
                         child: Text(
-                          'PANEN TERAKHIR · ${last.bulan}'.toUpperCase(),
+                          'PANEN TERAKHIR · ${lastMonthSummary.bulan}'.toUpperCase(),
                           style: AppTextStyles.body(10,
                               color: const Color(0xFF74C69D),
                               weight: FontWeight.w600),
@@ -374,7 +386,7 @@ class _BerandaContent extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(last.tonAktual.toStringAsFixed(1),
+                      Text(lastMonthSummary.tonAktual.toStringAsFixed(1),
                           style: AppTextStyles.mono(48,
                               color: Colors.white, weight: FontWeight.w700)),
                       const SizedBox(width: 8),
@@ -385,7 +397,7 @@ class _BerandaContent extends StatelessWidget {
                                 color: Colors.white60)),
                       ),
                       const Spacer(),
-                      _StatusChip(isOk: last.tonAktual >= last.targetMin),
+                      _StatusChip(isOk: lastMonthSummary.isNormal),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -399,7 +411,7 @@ class _BerandaContent extends StatelessWidget {
                     children: [
                       _HeroStat(
                         label: 'Target',
-                        value: '${last.targetMid.toStringAsFixed(1)} ton',
+                        value: '${lastMonthSummary.targetMid.toStringAsFixed(1)} ton',
                       ),
                       _HeroStat(
                         label: 'Tren vs bulan lalu',
@@ -416,7 +428,7 @@ class _BerandaContent extends StatelessWidget {
             ),
             const SizedBox(height: 14),
 
-            // Alert
+            // Alert — derived from aggregated monthly total, not individual record.
             if (isBelowTarget)
               Container(
                 margin: const EdgeInsets.only(bottom: 14),
@@ -449,7 +461,7 @@ class _BerandaContent extends StatelessWidget {
                                   weight: FontWeight.w700)),
                           const SizedBox(height: 2),
                           Text(
-                            'Kurang ${last.persenKurang.toStringAsFixed(0)}% dari normal. '
+                            'Kurang ${persenKurangAgg.toStringAsFixed(0)}% dari normal. '
                             'Segera analisa penyebabnya.',
                             style: AppTextStyles.body(12,
                                 color: const Color(0xFFB91C1C)),

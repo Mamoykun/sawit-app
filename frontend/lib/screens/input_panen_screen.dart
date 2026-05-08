@@ -36,6 +36,9 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
 
   late DateTime _selectedDate;
 
+  // Existing records in the selected month — summed for warning card.
+  double? _existingMonthTotal;
+
   // Optional photo
   List<int>? _imageBytes;
   String? _imageName;
@@ -50,6 +53,26 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
     super.initState();
     _panenRepo = PanenRepository(db: appDb, api: ApiService());
     _selectedDate = DateTime.now();
+    _fetchExistingMonthTotal();
+  }
+
+  /// Fetch and sum any existing panen records for the currently selected month.
+  Future<void> _fetchExistingMonthTotal() async {
+    try {
+      // Fetch recent records — limit covers multi-panen scenario adequately.
+      final list = await _panenRepo.getByLahan(widget.lahan.id, limit: 20);
+      final month = _selectedDate.month;
+      final year = _selectedDate.year;
+      final sameMonth = list
+          .where((p) => p.bulanAngka == month && p.tahun == year)
+          .toList();
+      final total = sameMonth.isEmpty
+          ? null
+          : sameMonth.fold<double>(0, (s, p) => s + p.tonAktual);
+      if (mounted) setState(() => _existingMonthTotal = total);
+    } catch (_) {
+      // Non-critical — warning card simply won't show on error.
+    }
   }
 
   Future<void> _pickDate() async {
@@ -60,7 +83,13 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
       firstDate: DateTime(now.year - 5),
       lastDate: now,
     );
-    if (picked != null) setState(() => _selectedDate = picked);
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+        _existingMonthTotal = null; // Reset while re-fetching
+      });
+      _fetchExistingMonthTotal();
+    }
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -320,6 +349,52 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
               }),
             ),
             const SizedBox(height: 20),
+
+            // Existing-month warning card — info only, does not block submit.
+            ValueListenableBuilder(
+              valueListenable: _tonController,
+              builder: (_, __, ___) {
+                final inputTon = double.tryParse(_tonController.text);
+                final existing = _existingMonthTotal;
+                if (existing == null || existing <= 0) {
+                  return const SizedBox.shrink();
+                }
+                final bulanLabel =
+                    _bulanNames[_selectedDate.month - 1];
+                final projectedTotal =
+                    existing + (inputTon ?? 0);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.info_outline_rounded,
+                            color: Color(0xFF3B82F6), size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            inputTon != null && inputTon > 0
+                                ? 'Sudah ada ${existing.toStringAsFixed(1)} ton untuk $bulanLabel ${_selectedDate.year}. '
+                                  'Total bulan ini jadi ${projectedTotal.toStringAsFixed(1)} ton setelah disimpan.'
+                                : 'Sudah ada ${existing.toStringAsFixed(1)} ton untuk $bulanLabel ${_selectedDate.year}. '
+                                  'Input ini akan ditambahkan ke total bulan tersebut.',
+                            style: AppTextStyles.body(13,
+                                color: const Color(0xFF1E3A5F)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
 
             if (_loading && _loadingLabel.isNotEmpty)
               Padding(
