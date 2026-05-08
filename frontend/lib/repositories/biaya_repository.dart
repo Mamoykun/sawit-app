@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import '../database/app_database.dart';
 import '../models/biaya_model.dart';
 import '../services/api_service.dart';
+import 'jadwal_pupuk_repository.dart';
 
 int _tempIdCounter = 0;
 
@@ -98,6 +99,16 @@ class BiayaRepository {
       localId: Value(tempId),
       createdAt: Value(now),
     ));
+
+    // Auto-update jadwal pemupukan when biaya category is PUPUK
+    if (kategoriCode == 'PUPUK') {
+      try {
+        await JadwalPupukRepository(db: _db)
+            .markPupukDone(lahanId, jenisPupuk: keterangan);
+      } catch (_) {
+        // silent fail — reminder is best-effort
+      }
+    }
 
     return BiayaModel(
       id: tempId,

@@ -7,6 +7,7 @@ import 'tables/biaya_table.dart';
 import 'tables/sync_queue_table.dart';
 import 'tables/pekerja_table.dart';
 import 'tables/inventory_pupuk_table.dart';
+import 'tables/jadwal_pupuk_table.dart';
 
 export 'tables/lahan_table.dart';
 export 'tables/panen_table.dart';
@@ -14,10 +15,11 @@ export 'tables/biaya_table.dart';
 export 'tables/sync_queue_table.dart';
 export 'tables/pekerja_table.dart';
 export 'tables/inventory_pupuk_table.dart';
+export 'tables/jadwal_pupuk_table.dart';
 
 part 'app_database.g.dart';
 
-@DriftDatabase(tables: [Lahans, Panens, Biayas, SyncQueue, Pekerjas, HariKerjas, InventoryPupuks])
+@DriftDatabase(tables: [Lahans, Panens, Biayas, SyncQueue, Pekerjas, HariKerjas, InventoryPupuks, JadwalPupuks])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
       : super(executor ?? driftDatabase(
@@ -29,7 +31,7 @@ class AppDatabase extends _$AppDatabase {
         ));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -38,6 +40,9 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(pekerjas);
         await m.createTable(hariKerjas);
         await m.createTable(inventoryPupuks);
+      }
+      if (from < 3) {
+        await m.createTable(jadwalPupuks);
       }
     },
   );
@@ -53,6 +58,7 @@ class AppDatabase extends _$AppDatabase {
       b.deleteAll(hariKerjas);
       b.deleteAll(pekerjas);
       b.deleteAll(inventoryPupuks);
+      b.deleteAll(jadwalPupuks);
     });
   }
 }

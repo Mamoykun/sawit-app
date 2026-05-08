@@ -5,6 +5,7 @@ import 'database/app_database.dart';
 import 'services/sync_service.dart';
 import 'services/api_service.dart';
 import 'services/theme_service.dart';
+import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 
@@ -18,6 +19,7 @@ void main() async {
   // (used by laporan PDF, currency display, dll).
   await initializeDateFormatting('id_ID', null);
   await themeService.init();
+  await NotificationService.init();
   appDb = AppDatabase();
   syncService = SyncService(db: appDb, api: ApiService());
   syncService.init();

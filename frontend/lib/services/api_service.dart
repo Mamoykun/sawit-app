@@ -13,6 +13,7 @@ import '../models/ai_usage_stats_model.dart';
 import '../main.dart';
 import '../screens/login_screen.dart';
 import '../theme/app_constants.dart';
+import 'notification_service.dart';
 
 class ApiService {
   static String get baseUrl =>
@@ -179,6 +180,7 @@ class ApiService {
     } catch (_) {
       // Ignore network errors on logout.
     }
+    await NotificationService.cancelAll();
     await _clearSession();
   }
 

@@ -3409,6 +3409,501 @@ class InventoryPupuksCompanion extends UpdateCompanion<InventoryPupuk> {
   }
 }
 
+class $JadwalPupuksTable extends JadwalPupuks
+    with TableInfo<$JadwalPupuksTable, JadwalPupuk> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $JadwalPupuksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _lahanIdMeta =
+      const VerificationMeta('lahanId');
+  @override
+  late final GeneratedColumn<int> lahanId = GeneratedColumn<int>(
+      'lahan_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _siklusHariMeta =
+      const VerificationMeta('siklusHari');
+  @override
+  late final GeneratedColumn<int> siklusHari = GeneratedColumn<int>(
+      'siklus_hari', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(90));
+  static const VerificationMeta _lastPemupukanAtMeta =
+      const VerificationMeta('lastPemupukanAt');
+  @override
+  late final GeneratedColumn<int> lastPemupukanAt = GeneratedColumn<int>(
+      'last_pemupukan_at', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _nextReminderAtMeta =
+      const VerificationMeta('nextReminderAt');
+  @override
+  late final GeneratedColumn<int> nextReminderAt = GeneratedColumn<int>(
+      'next_reminder_at', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _notificationIdMeta =
+      const VerificationMeta('notificationId');
+  @override
+  late final GeneratedColumn<int> notificationId = GeneratedColumn<int>(
+      'notification_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _isActiveMeta =
+      const VerificationMeta('isActive');
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+      'is_active', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("is_active" IN (0, 1))'),
+      defaultValue: const Constant(true));
+  static const VerificationMeta _jenisPupukMeta =
+      const VerificationMeta('jenisPupuk');
+  @override
+  late final GeneratedColumn<String> jenisPupuk = GeneratedColumn<String>(
+      'jenis_pupuk', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        lahanId,
+        siklusHari,
+        lastPemupukanAt,
+        nextReminderAt,
+        notificationId,
+        isActive,
+        jenisPupuk,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'jadwal_pupuks';
+  @override
+  VerificationContext validateIntegrity(Insertable<JadwalPupuk> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('lahan_id')) {
+      context.handle(_lahanIdMeta,
+          lahanId.isAcceptableOrUnknown(data['lahan_id']!, _lahanIdMeta));
+    } else if (isInserting) {
+      context.missing(_lahanIdMeta);
+    }
+    if (data.containsKey('siklus_hari')) {
+      context.handle(
+          _siklusHariMeta,
+          siklusHari.isAcceptableOrUnknown(
+              data['siklus_hari']!, _siklusHariMeta));
+    }
+    if (data.containsKey('last_pemupukan_at')) {
+      context.handle(
+          _lastPemupukanAtMeta,
+          lastPemupukanAt.isAcceptableOrUnknown(
+              data['last_pemupukan_at']!, _lastPemupukanAtMeta));
+    }
+    if (data.containsKey('next_reminder_at')) {
+      context.handle(
+          _nextReminderAtMeta,
+          nextReminderAt.isAcceptableOrUnknown(
+              data['next_reminder_at']!, _nextReminderAtMeta));
+    }
+    if (data.containsKey('notification_id')) {
+      context.handle(
+          _notificationIdMeta,
+          notificationId.isAcceptableOrUnknown(
+              data['notification_id']!, _notificationIdMeta));
+    }
+    if (data.containsKey('is_active')) {
+      context.handle(_isActiveMeta,
+          isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta));
+    }
+    if (data.containsKey('jenis_pupuk')) {
+      context.handle(
+          _jenisPupukMeta,
+          jenisPupuk.isAcceptableOrUnknown(
+              data['jenis_pupuk']!, _jenisPupukMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  JadwalPupuk map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return JadwalPupuk(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      lahanId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}lahan_id'])!,
+      siklusHari: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}siklus_hari'])!,
+      lastPemupukanAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}last_pemupukan_at']),
+      nextReminderAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}next_reminder_at']),
+      notificationId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}notification_id']),
+      isActive: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_active'])!,
+      jenisPupuk: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}jenis_pupuk']),
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $JadwalPupuksTable createAlias(String alias) {
+    return $JadwalPupuksTable(attachedDatabase, alias);
+  }
+}
+
+class JadwalPupuk extends DataClass implements Insertable<JadwalPupuk> {
+  final int id;
+  final int lahanId;
+
+  /// Siklus dalam hari (default 90)
+  final int siklusHari;
+
+  /// Tanggal pemupukan terakhir (unix ms timestamp)
+  final int? lastPemupukanAt;
+
+  /// Tanggal jadwal berikutnya (computed; unix ms timestamp)
+  final int? nextReminderAt;
+
+  /// Local notification ID (untuk cancel/reschedule)
+  final int? notificationId;
+
+  /// Active flag — user bisa pause reminder per lahan
+  final bool isActive;
+
+  /// Catatan/jenis pupuk
+  final String? jenisPupuk;
+  final int updatedAt;
+  const JadwalPupuk(
+      {required this.id,
+      required this.lahanId,
+      required this.siklusHari,
+      this.lastPemupukanAt,
+      this.nextReminderAt,
+      this.notificationId,
+      required this.isActive,
+      this.jenisPupuk,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['lahan_id'] = Variable<int>(lahanId);
+    map['siklus_hari'] = Variable<int>(siklusHari);
+    if (!nullToAbsent || lastPemupukanAt != null) {
+      map['last_pemupukan_at'] = Variable<int>(lastPemupukanAt);
+    }
+    if (!nullToAbsent || nextReminderAt != null) {
+      map['next_reminder_at'] = Variable<int>(nextReminderAt);
+    }
+    if (!nullToAbsent || notificationId != null) {
+      map['notification_id'] = Variable<int>(notificationId);
+    }
+    map['is_active'] = Variable<bool>(isActive);
+    if (!nullToAbsent || jenisPupuk != null) {
+      map['jenis_pupuk'] = Variable<String>(jenisPupuk);
+    }
+    map['updated_at'] = Variable<int>(updatedAt);
+    return map;
+  }
+
+  JadwalPupuksCompanion toCompanion(bool nullToAbsent) {
+    return JadwalPupuksCompanion(
+      id: Value(id),
+      lahanId: Value(lahanId),
+      siklusHari: Value(siklusHari),
+      lastPemupukanAt: lastPemupukanAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastPemupukanAt),
+      nextReminderAt: nextReminderAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextReminderAt),
+      notificationId: notificationId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notificationId),
+      isActive: Value(isActive),
+      jenisPupuk: jenisPupuk == null && nullToAbsent
+          ? const Value.absent()
+          : Value(jenisPupuk),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory JadwalPupuk.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return JadwalPupuk(
+      id: serializer.fromJson<int>(json['id']),
+      lahanId: serializer.fromJson<int>(json['lahanId']),
+      siklusHari: serializer.fromJson<int>(json['siklusHari']),
+      lastPemupukanAt: serializer.fromJson<int?>(json['lastPemupukanAt']),
+      nextReminderAt: serializer.fromJson<int?>(json['nextReminderAt']),
+      notificationId: serializer.fromJson<int?>(json['notificationId']),
+      isActive: serializer.fromJson<bool>(json['isActive']),
+      jenisPupuk: serializer.fromJson<String?>(json['jenisPupuk']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'lahanId': serializer.toJson<int>(lahanId),
+      'siklusHari': serializer.toJson<int>(siklusHari),
+      'lastPemupukanAt': serializer.toJson<int?>(lastPemupukanAt),
+      'nextReminderAt': serializer.toJson<int?>(nextReminderAt),
+      'notificationId': serializer.toJson<int?>(notificationId),
+      'isActive': serializer.toJson<bool>(isActive),
+      'jenisPupuk': serializer.toJson<String?>(jenisPupuk),
+      'updatedAt': serializer.toJson<int>(updatedAt),
+    };
+  }
+
+  JadwalPupuk copyWith(
+          {int? id,
+          int? lahanId,
+          int? siklusHari,
+          Value<int?> lastPemupukanAt = const Value.absent(),
+          Value<int?> nextReminderAt = const Value.absent(),
+          Value<int?> notificationId = const Value.absent(),
+          bool? isActive,
+          Value<String?> jenisPupuk = const Value.absent(),
+          int? updatedAt}) =>
+      JadwalPupuk(
+        id: id ?? this.id,
+        lahanId: lahanId ?? this.lahanId,
+        siklusHari: siklusHari ?? this.siklusHari,
+        lastPemupukanAt: lastPemupukanAt.present
+            ? lastPemupukanAt.value
+            : this.lastPemupukanAt,
+        nextReminderAt:
+            nextReminderAt.present ? nextReminderAt.value : this.nextReminderAt,
+        notificationId:
+            notificationId.present ? notificationId.value : this.notificationId,
+        isActive: isActive ?? this.isActive,
+        jenisPupuk: jenisPupuk.present ? jenisPupuk.value : this.jenisPupuk,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  JadwalPupuk copyWithCompanion(JadwalPupuksCompanion data) {
+    return JadwalPupuk(
+      id: data.id.present ? data.id.value : this.id,
+      lahanId: data.lahanId.present ? data.lahanId.value : this.lahanId,
+      siklusHari:
+          data.siklusHari.present ? data.siklusHari.value : this.siklusHari,
+      lastPemupukanAt: data.lastPemupukanAt.present
+          ? data.lastPemupukanAt.value
+          : this.lastPemupukanAt,
+      nextReminderAt: data.nextReminderAt.present
+          ? data.nextReminderAt.value
+          : this.nextReminderAt,
+      notificationId: data.notificationId.present
+          ? data.notificationId.value
+          : this.notificationId,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      jenisPupuk:
+          data.jenisPupuk.present ? data.jenisPupuk.value : this.jenisPupuk,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('JadwalPupuk(')
+          ..write('id: $id, ')
+          ..write('lahanId: $lahanId, ')
+          ..write('siklusHari: $siklusHari, ')
+          ..write('lastPemupukanAt: $lastPemupukanAt, ')
+          ..write('nextReminderAt: $nextReminderAt, ')
+          ..write('notificationId: $notificationId, ')
+          ..write('isActive: $isActive, ')
+          ..write('jenisPupuk: $jenisPupuk, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, lahanId, siklusHari, lastPemupukanAt,
+      nextReminderAt, notificationId, isActive, jenisPupuk, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is JadwalPupuk &&
+          other.id == this.id &&
+          other.lahanId == this.lahanId &&
+          other.siklusHari == this.siklusHari &&
+          other.lastPemupukanAt == this.lastPemupukanAt &&
+          other.nextReminderAt == this.nextReminderAt &&
+          other.notificationId == this.notificationId &&
+          other.isActive == this.isActive &&
+          other.jenisPupuk == this.jenisPupuk &&
+          other.updatedAt == this.updatedAt);
+}
+
+class JadwalPupuksCompanion extends UpdateCompanion<JadwalPupuk> {
+  final Value<int> id;
+  final Value<int> lahanId;
+  final Value<int> siklusHari;
+  final Value<int?> lastPemupukanAt;
+  final Value<int?> nextReminderAt;
+  final Value<int?> notificationId;
+  final Value<bool> isActive;
+  final Value<String?> jenisPupuk;
+  final Value<int> updatedAt;
+  const JadwalPupuksCompanion({
+    this.id = const Value.absent(),
+    this.lahanId = const Value.absent(),
+    this.siklusHari = const Value.absent(),
+    this.lastPemupukanAt = const Value.absent(),
+    this.nextReminderAt = const Value.absent(),
+    this.notificationId = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.jenisPupuk = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  JadwalPupuksCompanion.insert({
+    this.id = const Value.absent(),
+    required int lahanId,
+    this.siklusHari = const Value.absent(),
+    this.lastPemupukanAt = const Value.absent(),
+    this.nextReminderAt = const Value.absent(),
+    this.notificationId = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.jenisPupuk = const Value.absent(),
+    required int updatedAt,
+  })  : lahanId = Value(lahanId),
+        updatedAt = Value(updatedAt);
+  static Insertable<JadwalPupuk> custom({
+    Expression<int>? id,
+    Expression<int>? lahanId,
+    Expression<int>? siklusHari,
+    Expression<int>? lastPemupukanAt,
+    Expression<int>? nextReminderAt,
+    Expression<int>? notificationId,
+    Expression<bool>? isActive,
+    Expression<String>? jenisPupuk,
+    Expression<int>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (lahanId != null) 'lahan_id': lahanId,
+      if (siklusHari != null) 'siklus_hari': siklusHari,
+      if (lastPemupukanAt != null) 'last_pemupukan_at': lastPemupukanAt,
+      if (nextReminderAt != null) 'next_reminder_at': nextReminderAt,
+      if (notificationId != null) 'notification_id': notificationId,
+      if (isActive != null) 'is_active': isActive,
+      if (jenisPupuk != null) 'jenis_pupuk': jenisPupuk,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  JadwalPupuksCompanion copyWith(
+      {Value<int>? id,
+      Value<int>? lahanId,
+      Value<int>? siklusHari,
+      Value<int?>? lastPemupukanAt,
+      Value<int?>? nextReminderAt,
+      Value<int?>? notificationId,
+      Value<bool>? isActive,
+      Value<String?>? jenisPupuk,
+      Value<int>? updatedAt}) {
+    return JadwalPupuksCompanion(
+      id: id ?? this.id,
+      lahanId: lahanId ?? this.lahanId,
+      siklusHari: siklusHari ?? this.siklusHari,
+      lastPemupukanAt: lastPemupukanAt ?? this.lastPemupukanAt,
+      nextReminderAt: nextReminderAt ?? this.nextReminderAt,
+      notificationId: notificationId ?? this.notificationId,
+      isActive: isActive ?? this.isActive,
+      jenisPupuk: jenisPupuk ?? this.jenisPupuk,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (lahanId.present) {
+      map['lahan_id'] = Variable<int>(lahanId.value);
+    }
+    if (siklusHari.present) {
+      map['siklus_hari'] = Variable<int>(siklusHari.value);
+    }
+    if (lastPemupukanAt.present) {
+      map['last_pemupukan_at'] = Variable<int>(lastPemupukanAt.value);
+    }
+    if (nextReminderAt.present) {
+      map['next_reminder_at'] = Variable<int>(nextReminderAt.value);
+    }
+    if (notificationId.present) {
+      map['notification_id'] = Variable<int>(notificationId.value);
+    }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
+    }
+    if (jenisPupuk.present) {
+      map['jenis_pupuk'] = Variable<String>(jenisPupuk.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('JadwalPupuksCompanion(')
+          ..write('id: $id, ')
+          ..write('lahanId: $lahanId, ')
+          ..write('siklusHari: $siklusHari, ')
+          ..write('lastPemupukanAt: $lastPemupukanAt, ')
+          ..write('nextReminderAt: $nextReminderAt, ')
+          ..write('notificationId: $notificationId, ')
+          ..write('isActive: $isActive, ')
+          ..write('jenisPupuk: $jenisPupuk, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3420,6 +3915,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $HariKerjasTable hariKerjas = $HariKerjasTable(this);
   late final $InventoryPupuksTable inventoryPupuks =
       $InventoryPupuksTable(this);
+  late final $JadwalPupuksTable jadwalPupuks = $JadwalPupuksTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3431,7 +3927,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         syncQueue,
         pekerjas,
         hariKerjas,
-        inventoryPupuks
+        inventoryPupuks,
+        jadwalPupuks
       ];
 }
 
@@ -5255,6 +5752,239 @@ typedef $$InventoryPupuksTableProcessedTableManager = ProcessedTableManager<
     ),
     InventoryPupuk,
     PrefetchHooks Function()>;
+typedef $$JadwalPupuksTableCreateCompanionBuilder = JadwalPupuksCompanion
+    Function({
+  Value<int> id,
+  required int lahanId,
+  Value<int> siklusHari,
+  Value<int?> lastPemupukanAt,
+  Value<int?> nextReminderAt,
+  Value<int?> notificationId,
+  Value<bool> isActive,
+  Value<String?> jenisPupuk,
+  required int updatedAt,
+});
+typedef $$JadwalPupuksTableUpdateCompanionBuilder = JadwalPupuksCompanion
+    Function({
+  Value<int> id,
+  Value<int> lahanId,
+  Value<int> siklusHari,
+  Value<int?> lastPemupukanAt,
+  Value<int?> nextReminderAt,
+  Value<int?> notificationId,
+  Value<bool> isActive,
+  Value<String?> jenisPupuk,
+  Value<int> updatedAt,
+});
+
+class $$JadwalPupuksTableFilterComposer
+    extends Composer<_$AppDatabase, $JadwalPupuksTable> {
+  $$JadwalPupuksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get lahanId => $composableBuilder(
+      column: $table.lahanId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get siklusHari => $composableBuilder(
+      column: $table.siklusHari, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get lastPemupukanAt => $composableBuilder(
+      column: $table.lastPemupukanAt,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get nextReminderAt => $composableBuilder(
+      column: $table.nextReminderAt,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get notificationId => $composableBuilder(
+      column: $table.notificationId,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+      column: $table.isActive, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get jenisPupuk => $composableBuilder(
+      column: $table.jenisPupuk, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$JadwalPupuksTableOrderingComposer
+    extends Composer<_$AppDatabase, $JadwalPupuksTable> {
+  $$JadwalPupuksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get lahanId => $composableBuilder(
+      column: $table.lahanId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get siklusHari => $composableBuilder(
+      column: $table.siklusHari, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get lastPemupukanAt => $composableBuilder(
+      column: $table.lastPemupukanAt,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get nextReminderAt => $composableBuilder(
+      column: $table.nextReminderAt,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get notificationId => $composableBuilder(
+      column: $table.notificationId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+      column: $table.isActive, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get jenisPupuk => $composableBuilder(
+      column: $table.jenisPupuk, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$JadwalPupuksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $JadwalPupuksTable> {
+  $$JadwalPupuksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get lahanId =>
+      $composableBuilder(column: $table.lahanId, builder: (column) => column);
+
+  GeneratedColumn<int> get siklusHari => $composableBuilder(
+      column: $table.siklusHari, builder: (column) => column);
+
+  GeneratedColumn<int> get lastPemupukanAt => $composableBuilder(
+      column: $table.lastPemupukanAt, builder: (column) => column);
+
+  GeneratedColumn<int> get nextReminderAt => $composableBuilder(
+      column: $table.nextReminderAt, builder: (column) => column);
+
+  GeneratedColumn<int> get notificationId => $composableBuilder(
+      column: $table.notificationId, builder: (column) => column);
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
+
+  GeneratedColumn<String> get jenisPupuk => $composableBuilder(
+      column: $table.jenisPupuk, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$JadwalPupuksTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $JadwalPupuksTable,
+    JadwalPupuk,
+    $$JadwalPupuksTableFilterComposer,
+    $$JadwalPupuksTableOrderingComposer,
+    $$JadwalPupuksTableAnnotationComposer,
+    $$JadwalPupuksTableCreateCompanionBuilder,
+    $$JadwalPupuksTableUpdateCompanionBuilder,
+    (
+      JadwalPupuk,
+      BaseReferences<_$AppDatabase, $JadwalPupuksTable, JadwalPupuk>
+    ),
+    JadwalPupuk,
+    PrefetchHooks Function()> {
+  $$JadwalPupuksTableTableManager(_$AppDatabase db, $JadwalPupuksTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$JadwalPupuksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$JadwalPupuksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$JadwalPupuksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<int> lahanId = const Value.absent(),
+            Value<int> siklusHari = const Value.absent(),
+            Value<int?> lastPemupukanAt = const Value.absent(),
+            Value<int?> nextReminderAt = const Value.absent(),
+            Value<int?> notificationId = const Value.absent(),
+            Value<bool> isActive = const Value.absent(),
+            Value<String?> jenisPupuk = const Value.absent(),
+            Value<int> updatedAt = const Value.absent(),
+          }) =>
+              JadwalPupuksCompanion(
+            id: id,
+            lahanId: lahanId,
+            siklusHari: siklusHari,
+            lastPemupukanAt: lastPemupukanAt,
+            nextReminderAt: nextReminderAt,
+            notificationId: notificationId,
+            isActive: isActive,
+            jenisPupuk: jenisPupuk,
+            updatedAt: updatedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required int lahanId,
+            Value<int> siklusHari = const Value.absent(),
+            Value<int?> lastPemupukanAt = const Value.absent(),
+            Value<int?> nextReminderAt = const Value.absent(),
+            Value<int?> notificationId = const Value.absent(),
+            Value<bool> isActive = const Value.absent(),
+            Value<String?> jenisPupuk = const Value.absent(),
+            required int updatedAt,
+          }) =>
+              JadwalPupuksCompanion.insert(
+            id: id,
+            lahanId: lahanId,
+            siklusHari: siklusHari,
+            lastPemupukanAt: lastPemupukanAt,
+            nextReminderAt: nextReminderAt,
+            notificationId: notificationId,
+            isActive: isActive,
+            jenisPupuk: jenisPupuk,
+            updatedAt: updatedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$JadwalPupuksTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $JadwalPupuksTable,
+    JadwalPupuk,
+    $$JadwalPupuksTableFilterComposer,
+    $$JadwalPupuksTableOrderingComposer,
+    $$JadwalPupuksTableAnnotationComposer,
+    $$JadwalPupuksTableCreateCompanionBuilder,
+    $$JadwalPupuksTableUpdateCompanionBuilder,
+    (
+      JadwalPupuk,
+      BaseReferences<_$AppDatabase, $JadwalPupuksTable, JadwalPupuk>
+    ),
+    JadwalPupuk,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5273,4 +6003,6 @@ class $AppDatabaseManager {
       $$HariKerjasTableTableManager(_db, _db.hariKerjas);
   $$InventoryPupuksTableTableManager get inventoryPupuks =>
       $$InventoryPupuksTableTableManager(_db, _db.inventoryPupuks);
+  $$JadwalPupuksTableTableManager get jadwalPupuks =>
+      $$JadwalPupuksTableTableManager(_db, _db.jadwalPupuks);
 }
