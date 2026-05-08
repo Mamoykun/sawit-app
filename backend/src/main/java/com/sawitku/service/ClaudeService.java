@@ -88,6 +88,15 @@ public class ClaudeService {
 
     @Async
     public void analyzePanen(Panen panen, Lahan lahan) {
+        doAnalyzePanen(panen, lahan);
+    }
+
+    /** Synchronous variant for batch upgrade job (same thread, no @Async proxy). */
+    public void analyzePanenSync(Panen panen, Lahan lahan) {
+        doAnalyzePanen(panen, lahan);
+    }
+
+    private void doAnalyzePanen(Panen panen, Lahan lahan) {
         Long userId = lahan.getUser().getId();
 
         // Build cache key from data hash (not panen.id — allows deduplication)
@@ -357,7 +366,7 @@ public class ClaudeService {
             List<Panen> history = loadHistory(panen, lahan);
             List<Biaya> recentBiaya = loadRecentPupuk(lahan);
             AnalisaResult result = localAdvisorService.buildFallback(panen, lahan, history, recentBiaya);
-            saveAnalisa(panen, lahan, result, "LOCAL_FALLBACK");
+            saveAnalisa(panen, lahan, result, "{\"source\":\"local_advisor\"}");
         } catch (Exception e) {
             log.error("Fallback analisa gagal: {}", e.getMessage());
         }
