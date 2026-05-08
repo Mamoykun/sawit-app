@@ -3,6 +3,7 @@ import '../theme/app_theme.dart';
 import '../models/panen_model.dart';
 import '../models/lahan_model.dart';
 import '../models/biaya_model.dart' show KategoriBiaya;
+import '../models/ai_usage_stats_model.dart';
 import '../services/api_service.dart';
 import '../services/analisa_service.dart';
 import 'beranda_screen.dart';
@@ -32,6 +33,7 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   HasilAnalisa? _lastAnalisa;
   AnalisaDataInfo? _analisaDataInfo;
+  AiUsageStatsModel? _aiStats;
 
   @override
   void initState() {
@@ -73,6 +75,12 @@ class _MainScreenState extends State<MainScreen> {
               widget.lahan.lokasi!.isNotEmpty,
         );
       });
+      try {
+        final stats = await ApiService().getAiUsageStats();
+        if (mounted) setState(() => _aiStats = stats);
+      } catch (_) {
+        // Silent fallback — quota UI optional
+      }
     } catch (_) {}
   }
 
@@ -97,6 +105,7 @@ class _MainScreenState extends State<MainScreen> {
         hasil: _lastAnalisa,
         lahan: widget.lahan,
         dataInfo: _analisaDataInfo,
+        aiStats: _aiStats,
         onGoToInput: () => setState(() => _currentIndex = 0),
         onGoToRiwayat: () => setState(() => _currentIndex = 0),
         onRefresh: _loadLastAnalisa,
