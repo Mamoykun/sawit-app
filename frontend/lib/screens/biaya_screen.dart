@@ -10,6 +10,7 @@ import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/offline_banner.dart';
+import '../widgets/app_snackbar.dart';
 
 class BiayaScreen extends StatefulWidget {
   final LahanModel lahan;
@@ -135,7 +136,10 @@ class _BiayaScreenState extends State<BiayaScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => _BiayaForm(lahan: widget.lahan, edit: edit),
     );
-    if (result == true) _loadData();
+    if (result == true) {
+      _loadData();
+      if (mounted) AppSnackbar.success(context, 'Biaya berhasil disimpan!');
+    }
   }
 
   Future<void> _confirmDelete(BiayaModel b) async {

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/panen_model.dart';
 import '../models/lahan_model.dart';
+import '../models/ai_usage_stats_model.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/help_tooltip.dart';
 
 class AnalisaDataInfo {
   final int panenCount;
@@ -22,6 +24,8 @@ class HasilAnalisaScreen extends StatelessWidget {
   final VoidCallback onGoToInput;
   final VoidCallback onGoToRiwayat;
   final VoidCallback? onRefresh;
+  /// Optional AI usage stats — passed from main_screen to avoid double-fetch.
+  final AiUsageStatsModel? aiStats;
 
   const HasilAnalisaScreen({
     super.key,
@@ -31,6 +35,7 @@ class HasilAnalisaScreen extends StatelessWidget {
     required this.onGoToInput,
     required this.onGoToRiwayat,
     this.onRefresh,
+    this.aiStats,
   });
 
   @override
@@ -43,6 +48,13 @@ class HasilAnalisaScreen extends StatelessWidget {
     final luasHa = lahan?.luasHa ?? p.luasHa;
     final usiaTahun = lahan?.usiaPohon ?? p.usiaTahun;
     final namaLahan = lahan?.namaLahan;
+
+    // Determine if the latest result is local/rule-based for the banner.
+    final isLocal = p.analisa != null && !p.analisa!.isAiGenerated;
+    final showExhaustedBanner = aiStats != null &&
+        aiStats!.isExhausted &&
+        !aiStats!.isPro &&
+        isLocal;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
@@ -58,8 +70,20 @@ class HasilAnalisaScreen extends StatelessWidget {
 
           // ─── Data Info Hint ──────────────────────────────────────────────
           if (dataInfo != null) ...[
-            _DataInfoBadge(info: dataInfo!, lokasi: lahan?.lokasi),
+            _DataInfoBadge(
+              info: dataInfo!,
+              lokasi: lahan?.lokasi,
+              analisa: p.analisa,
+            ),
             const SizedBox(height: 14),
+          ],
+
+          // ─── Quota Exhausted Banner ──────────────────────────────────────
+          if (showExhaustedBanner) ...[
+            _QuotaExhaustedBanner(
+              onUpgrade: () => Navigator.pushNamed(context, '/subscription'),
+            ),
+            const SizedBox(height: 12),
           ],
 
           // ─── Status Banner ───────────────────────────────────────────────
@@ -126,9 +150,20 @@ class HasilAnalisaScreen extends StatelessWidget {
                 const SizedBox(height: 4),
                 // Sub-info: target range, friendly format
                 Center(
-                  child: Text(
-                    'Target normal: ${p.targetMin.toStringAsFixed(1)}–${p.targetMax.toStringAsFixed(1)} ton',
-                    style: AppTextStyles.body(13, color: AppColors.textMid),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Target normal: ${p.targetMin.toStringAsFixed(1)}–${p.targetMax.toStringAsFixed(1)} ton',
+                        style: AppTextStyles.body(13, color: AppColors.textMid),
+                      ),
+                      const SizedBox(width: 4),
+                      const HelpTooltip(
+                        term: 'Target Panen',
+                        explanation:
+                            'Target panen dihitung berdasarkan luas lahan dan usia pohon. Setiap fase usia (puncak awal, puncak produktif, dll) punya rentang produksi normal.',
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -512,33 +547,108 @@ class _EmptyState extends StatelessWidget {
 class _DataInfoBadge extends StatelessWidget {
   final AnalisaDataInfo info;
   final String? lokasi;
-  const _DataInfoBadge({required this.info, this.lokasi});
+  final AnalisaResult? analisa;
+  const _DataInfoBadge({
+    required this.info,
+    this.lokasi,
+    this.analisa,
+  });
+
+  void _showSourceSheet(BuildContext context, bool isAi) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  isAi ? Icons.smart_toy_rounded : Icons.rule_rounded,
+                  color: isAi ? AppColors.gold : AppColors.primary3,
+                  size: 22,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  isAi ? 'Analisa AI Premium' : 'Analisa Cepat (Rule-Based)',
+                  style: AppTextStyles.display(16),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              isAi
+                  ? 'Analisa ini dihasilkan oleh AI yang mempertimbangkan tren panen, riwayat pupuk, cuaca, dan profil lahan Anda secara menyeluruh.'
+                  : 'Analisa ini berbasis aturan agronomi standar. Untuk analisa AI yang lebih spesifik dan personal, upgrade paket atau tunggu reset kuota bulan depan.',
+              style: AppTextStyles.body(14, color: AppColors.textMid),
+            ),
+            const SizedBox(height: 20),
+            if (!isAi) ...[
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.gold,
+                    borderRadius: BorderRadius.circular(Radii.md),
+                  ),
+                  child: Center(
+                    child: Text('Upgrade Paket',
+                        style: AppTextStyles.body(14,
+                            color: Colors.white, weight: FontWeight.w700)),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Determine AI/local source — only show badge if analisa is available.
+    final bool? isAi =
+        analisa != null ? analisa!.isAiGenerated : null;
+
     // Petani baru (1 panen, belum ada pupuk) → tip motivasi
     final isNewUser = info.panenCount <= 1 && !info.hasPupukData;
     if (isNewUser) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.goldTint,
-          border: Border.all(color: AppColors.goldLight.withOpacity(0.4)),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.lightbulb_outline_rounded,
-                size: 16, color: AppColors.gold),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Input panen rutin tiap bulan — analisa AI semakin akurat seiring data bertambah.',
-                style: AppTextStyles.body(11,
-                    color: AppColors.gold, weight: FontWeight.w500),
+      return GestureDetector(
+        onTap: isAi != null ? () => _showSourceSheet(context, isAi) : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.goldTint,
+            border: Border.all(color: AppColors.goldLight.withOpacity(0.4)),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.lightbulb_outline_rounded,
+                  size: 16, color: AppColors.gold),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Input panen rutin tiap bulan — analisa AI semakin akurat seiring data bertambah.',
+                  style: AppTextStyles.body(11,
+                      color: AppColors.gold, weight: FontWeight.w500),
+                ),
               ),
-            ),
-          ],
+              if (isAi != null) ...[
+                const SizedBox(width: 8),
+                _SourcePill(isAi: isAi),
+              ],
+            ],
+          ),
         ),
       );
     }
@@ -552,29 +662,134 @@ class _DataInfoBadge extends StatelessWidget {
     if (info.hasLokasi && lokasi != null && lokasi!.isNotEmpty) {
       parts.add('cuaca ${lokasi!}');
     }
-    if (parts.isEmpty) return const SizedBox.shrink();
+    if (parts.isEmpty && isAi == null) return const SizedBox.shrink();
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.primaryTint,
-        border: Border.all(color: AppColors.primary3.withOpacity(0.3)),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.bar_chart_rounded,
-              size: 16, color: AppColors.primary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Berdasarkan ${parts.join(' + ')}',
-              style: AppTextStyles.body(11,
-                  color: AppColors.primary, weight: FontWeight.w500),
+    return GestureDetector(
+      onTap: isAi != null ? () => _showSourceSheet(context, isAi) : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.primaryTint,
+          border: Border.all(color: AppColors.primary3.withOpacity(0.3)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.bar_chart_rounded,
+                size: 16, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                parts.isNotEmpty
+                    ? 'Berdasarkan ${parts.join(' + ')}'
+                    : 'Data analisa tersedia',
+                style: AppTextStyles.body(11,
+                    color: AppColors.primary, weight: FontWeight.w500),
+              ),
             ),
-          ),
-        ],
+            if (isAi != null) ...[
+              const SizedBox(width: 8),
+              _SourcePill(isAi: isAi),
+            ],
+          ],
+        ),
       ),
     );
   }
+}
+
+/// Small pill badge showing AI or rule-based source.
+class _SourcePill extends StatelessWidget {
+  final bool isAi;
+  const _SourcePill({required this.isAi});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: isAi
+              ? AppColors.gold.withOpacity(0.15)
+              : AppColors.primary3.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(Radii.pill),
+          border: Border.all(
+            color: isAi
+                ? AppColors.gold.withOpacity(0.4)
+                : AppColors.primary3.withOpacity(0.3),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isAi ? Icons.smart_toy_rounded : Icons.rule_rounded,
+              size: 11,
+              color: isAi ? AppColors.gold : AppColors.primary3,
+            ),
+            const SizedBox(width: 3),
+            Text(
+              isAi ? 'Analisa AI' : 'Analisa Cepat',
+              style: AppTextStyles.body(10,
+                  color: isAi ? AppColors.gold : AppColors.primary3,
+                  weight: FontWeight.w700),
+            ),
+          ],
+        ),
+      );
+}
+
+/// Banner shown at the top of the analisa screen when quota is exhausted.
+class _QuotaExhaustedBanner extends StatelessWidget {
+  final VoidCallback? onUpgrade;
+  const _QuotaExhaustedBanner({this.onUpgrade});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.warnTint,
+          borderRadius: BorderRadius.circular(Radii.md),
+          border:
+              Border.all(color: AppColors.warn.withOpacity(0.35)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.bolt_rounded,
+                size: 18, color: AppColors.warn),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Kuota AI bulan ini sudah habis.',
+                    style: AppTextStyles.body(13,
+                        color: AppColors.warn, weight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Analisa berikutnya akan menggunakan mode cepat (rule-based).',
+                    style: AppTextStyles.body(12, color: AppColors.warn),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: onUpgrade,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppColors.warn,
+                  borderRadius: BorderRadius.circular(Radii.md),
+                ),
+                child: Text('Upgrade',
+                    style: AppTextStyles.body(11,
+                        color: Colors.white, weight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
+      );
 }

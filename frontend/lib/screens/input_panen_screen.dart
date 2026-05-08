@@ -13,6 +13,8 @@ import '../repositories/panen_repository.dart';
 import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
 import '../widgets/offline_banner.dart';
+import '../widgets/app_snackbar.dart';
+import '../widgets/help_tooltip.dart';
 
 class InputPanenScreen extends StatefulWidget {
   final LahanModel lahan;
@@ -192,9 +194,7 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
   Future<void> _submit() async {
     final ton = double.tryParse(_tonController.text);
     if (ton == null || ton <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Masukkan hasil panen yang valid')),
-      );
+      AppSnackbar.error(context, 'Masukkan hasil panen yang valid');
       return;
     }
 
@@ -246,16 +246,10 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
           ? result.analisa!.penyebab
           : AnalisaService.getPenyebab(result.persenKurang);
 
+      if (mounted) AppSnackbar.success(context, 'Panen tersimpan!');
       widget.onAnalisaDone(HasilAnalisa(panen: result, penyebab: penyebab));
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_parseError(e)),
-            backgroundColor: AppColors.danger,
-          ),
-        );
-      }
+      if (mounted) AppSnackbar.error(context, _parseError(e));
     } finally {
       if (mounted) setState(() { _loading = false; _loadingLabel = ''; });
     }
@@ -328,6 +322,21 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
                     highlight: true,
                   ),
                   const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text('Harga TBS (per ton)',
+                          style: AppTextStyles.body(13,
+                              color: AppColors.textMid,
+                              weight: FontWeight.w600)),
+                      const SizedBox(width: 4),
+                      const HelpTooltip(
+                        term: 'Harga TBS',
+                        explanation:
+                            'Harga Tandan Buah Segar per ton. Update sesuai harga jual ke pabrik/koperasi. Cek harga referensi di Dinas Perkebunan setempat.',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
                   AppInputField(
                     label: 'Harga Per Ton',
                     hint: '${AppConstants.defaultHargaTbs.toInt()}',

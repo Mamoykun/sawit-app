@@ -8,6 +8,7 @@ import '../repositories/panen_repository.dart';
 import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
 import '../widgets/offline_banner.dart';
+import '../widgets/help_tooltip.dart';
 
 class ProductionAnalyticsScreen extends StatefulWidget {
   final LahanModel lahan;
@@ -859,8 +860,18 @@ class _AchievementBar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Berapa Bulan yang Sesuai Target?',
-              style: AppTextStyles.display(17)),
+          Row(
+            children: [
+              Text('Berapa Bulan yang Sesuai Target?',
+                  style: AppTextStyles.display(17)),
+              const SizedBox(width: 4),
+              const HelpTooltip(
+                term: 'Konsistensi',
+                explanation:
+                    'Persentase bulan dengan panen sesuai target. Konsistensi tinggi = pengelolaan kebun stabil.',
+              ),
+            ],
+          ),
           const SizedBox(height: 6),
           Text(
             'Dari $bulanAktif bulan yang sudah dicatat',

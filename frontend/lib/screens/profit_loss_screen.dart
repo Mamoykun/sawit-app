@@ -6,6 +6,7 @@ import '../models/biaya_model.dart';
 import '../services/api_service.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/offline_banner.dart';
+import '../widgets/help_tooltip.dart';
 
 class ProfitLossScreen extends StatefulWidget {
   final LahanModel lahan;
@@ -275,6 +276,12 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
                 ? '${margin.toStringAsFixed(1)}%'
                 : '—',
             color: marginColor,
+            tooltip: const HelpTooltip(
+              term: 'Profit/Margin',
+              explanation:
+                  'Pendapatan dari panen dikurangi total biaya operasional (pupuk, tenaga kerja, dll). Margin = persentase profit dari pendapatan.',
+              size: 12,
+            ),
           ),
         ),
       ],
@@ -630,11 +637,13 @@ class _SmallMetricCard extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
+  final HelpTooltip? tooltip;
 
   const _SmallMetricCard({
     required this.label,
     required this.value,
     required this.color,
+    this.tooltip,
   });
 
   @override
@@ -667,9 +676,17 @@ class _SmallMetricCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis),
             const SizedBox(height: 4),
-            Text(label.toUpperCase(),
-                style: AppTextStyles.body(8, color: AppColors.textMuted,
-                    weight: FontWeight.w600)),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(label.toUpperCase(),
+                      style: AppTextStyles.body(8,
+                          color: AppColors.textMuted,
+                          weight: FontWeight.w600)),
+                ),
+                if (tooltip != null) tooltip!,
+              ],
+            ),
           ],
         ),
       );

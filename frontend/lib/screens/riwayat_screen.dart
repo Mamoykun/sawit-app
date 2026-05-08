@@ -13,6 +13,8 @@ import '../repositories/panen_repository.dart';
 import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
 import '../widgets/offline_banner.dart';
+import '../widgets/app_dialog.dart';
+import '../widgets/app_snackbar.dart';
 import 'biaya_screen.dart';
 
 // ─── Month aggregation ────────────────────────────────────────────────────────
@@ -1327,28 +1329,16 @@ class _PanenDetailSheetState extends State<_PanenDetailSheet> {
   }
 
   Future<void> _confirmDelete() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Hapus Data Panen?', style: AppTextStyles.display(16)),
-        content: Text(
+    final confirm = await AppDialog.confirm(
+      context,
+      title: 'Hapus Data Panen?',
+      message:
           'Data panen ${widget.panen.bulan} ${widget.panen.tahun ?? ''} akan dihapus permanen.',
-          style: AppTextStyles.body(13, color: AppColors.textMuted),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Batal', style: AppTextStyles.body(13, color: AppColors.textMuted)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Hapus', style: AppTextStyles.body(13, color: AppColors.danger, weight: FontWeight.w700)),
-          ),
-        ],
-      ),
+      confirmLabel: 'Hapus',
+      destructive: true,
+      icon: Icons.warning_rounded,
     );
-    if (confirm != true || !mounted) return;
+    if (!confirm || !mounted) return;
 
     setState(() => _deleting = true);
     try {
@@ -1363,11 +1353,7 @@ class _PanenDetailSheetState extends State<_PanenDetailSheet> {
         final msg = e.toString().contains('404')
             ? 'Data sudah tidak ada'
             : 'Gagal menghapus data. Coba lagi.';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(msg),
-          backgroundColor: AppColors.danger,
-          duration: const Duration(seconds: 3),
-        ));
+        AppSnackbar.error(context, msg);
       }
     }
   }

@@ -14,6 +14,7 @@ import 'profile_screen.dart';
 import '../repositories/panen_repository.dart';
 import '../repositories/biaya_repository.dart';
 import '../widgets/offline_banner.dart';
+import '../widgets/onboarding_overlay.dart';
 import '../main.dart' show appDb;
 
 class MainScreen extends StatefulWidget {
@@ -36,11 +37,19 @@ class _MainScreenState extends State<MainScreen> {
   AnalisaDataInfo? _analisaDataInfo;
   AiUsageStatsModel? _aiStats;
   bool _analisaRetryScheduled = false;
+  bool _showOnboarding = false;
 
   @override
   void initState() {
     super.initState();
+    _checkOnboarding();
     _loadLastAnalisa();
+  }
+
+  Future<void> _checkOnboarding() async {
+    if (await OnboardingOverlay.shouldShow() && mounted) {
+      setState(() => _showOnboarding = true);
+    }
   }
 
   Future<void> _loadLastAnalisa({bool fromRetry = false}) async {
@@ -246,10 +255,19 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          const OfflineBanner(),
-          Expanded(child: IndexedStack(index: _currentIndex, children: screens)),
+          Column(
+            children: [
+              const OfflineBanner(),
+              Expanded(
+                  child: IndexedStack(index: _currentIndex, children: screens)),
+            ],
+          ),
+          if (_showOnboarding)
+            OnboardingOverlay(
+              onDone: () => setState(() => _showOnboarding = false),
+            ),
         ],
       ),
       bottomNavigationBar: _BottomNav(
