@@ -7,6 +7,7 @@ import '../models/biaya_model.dart' show KategoriBiaya;
 import '../models/ai_usage_stats_model.dart';
 import '../services/api_service.dart';
 import '../services/analisa_service.dart';
+import '../services/anomaly_detector.dart';
 import 'beranda_screen.dart';
 import 'hasil_analisa_screen.dart';
 import 'lahan_screen.dart';
@@ -36,6 +37,7 @@ class _MainScreenState extends State<MainScreen> {
   HasilAnalisa? _lastAnalisa;
   AnalisaDataInfo? _analisaDataInfo;
   AiUsageStatsModel? _aiStats;
+  AnomalyResult? _anomaly;
   bool _analisaRetryScheduled = false;
   bool _showOnboarding = false;
 
@@ -113,6 +115,10 @@ class _MainScreenState extends State<MainScreen> {
       final penyebab = aggregated.analisa?.penyebab.isNotEmpty == true
           ? aggregated.analisa!.penyebab
           : AnalisaService.getPenyebab(persenKurang);
+
+      // Run rule-based anomaly detection on the aggregated monthly record.
+      final anomaly = AnomalyDetector.detect(aggregated, list);
+
       setState(() {
         _lastAnalisa = HasilAnalisa(panen: aggregated, penyebab: penyebab);
         _analisaDataInfo = AnalisaDataInfo(
@@ -121,6 +127,7 @@ class _MainScreenState extends State<MainScreen> {
           hasLokasi: widget.lahan.lokasi != null &&
               widget.lahan.lokasi!.isNotEmpty,
         );
+        _anomaly = anomaly;
       });
       // If analisa is null (async AI not yet computed), schedule retries.
       // fromRetry guard prevents infinite recursion: retry → _loadLastAnalisa → retry.
@@ -181,6 +188,7 @@ class _MainScreenState extends State<MainScreen> {
         lahan: widget.lahan,
         dataInfo: _analisaDataInfo,
         aiStats: _aiStats,
+        anomaly: _anomaly,
         onGoToInput: () => setState(() => _currentIndex = 0),
         onGoToRiwayat: () => setState(() => _currentIndex = 0),
         onRefresh: _loadLastAnalisa,

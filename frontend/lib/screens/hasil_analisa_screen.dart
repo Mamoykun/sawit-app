@@ -3,6 +3,7 @@ import '../theme/app_theme.dart';
 import '../models/panen_model.dart';
 import '../models/lahan_model.dart';
 import '../models/ai_usage_stats_model.dart';
+import '../services/anomaly_detector.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/help_tooltip.dart';
 
@@ -27,6 +28,9 @@ class HasilAnalisaScreen extends StatelessWidget {
   /// Optional AI usage stats — passed from main_screen to avoid double-fetch.
   final AiUsageStatsModel? aiStats;
 
+  /// Optional rule-based anomaly result — shown as a warning banner.
+  final AnomalyResult? anomaly;
+
   const HasilAnalisaScreen({
     super.key,
     required this.hasil,
@@ -36,6 +40,7 @@ class HasilAnalisaScreen extends StatelessWidget {
     required this.onGoToRiwayat,
     this.onRefresh,
     this.aiStats,
+    this.anomaly,
   });
 
   @override
@@ -76,6 +81,12 @@ class HasilAnalisaScreen extends StatelessWidget {
               analisa: p.analisa,
             ),
             const SizedBox(height: 14),
+          ],
+
+          // ─── Anomaly Detection Banner ────────────────────────────────────
+          if (anomaly != null) ...[
+            _AnomalyBanner(anomaly: anomaly!),
+            const SizedBox(height: 12),
           ],
 
           // ─── Quota Exhausted Banner ──────────────────────────────────────
@@ -731,6 +742,55 @@ class _SourcePill extends StatelessWidget {
               style: AppTextStyles.body(10,
                   color: isAi ? AppColors.gold : AppColors.primary3,
                   weight: FontWeight.w700),
+            ),
+          ],
+        ),
+      );
+}
+
+/// Banner shown when anomaly detector finds a significant panen drop.
+class _AnomalyBanner extends StatelessWidget {
+  final AnomalyResult anomaly;
+  const _AnomalyBanner({required this.anomaly});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.dangerTint,
+          borderRadius: BorderRadius.circular(Radii.md),
+          border: Border.all(color: AppColors.danger.withOpacity(0.4)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.danger.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.analytics_rounded,
+                  color: AppColors.danger, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Anomali Terdeteksi',
+                    style: AppTextStyles.body(13,
+                        color: AppColors.danger, weight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    anomaly.message,
+                    style: AppTextStyles.body(12, color: AppColors.danger),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

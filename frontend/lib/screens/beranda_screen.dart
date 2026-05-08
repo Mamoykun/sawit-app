@@ -20,6 +20,8 @@ import 'production_analytics_screen.dart';
 import 'laporan_screen.dart';
 import 'import_excel_screen.dart';
 import 'photo_progress_screen.dart';
+import 'pekerja_screen.dart';
+import 'inventory_pupuk_screen.dart';
 
 class BerandaScreen extends StatefulWidget {
   final LahanModel lahan;
@@ -106,6 +108,8 @@ class _BerandaScreenState extends State<BerandaScreen> {
         onOpenLaporan: _openLaporan,
         onOpenImportExcel: _openImportExcel,
         onOpenPhotoProgress: _openPhotoProgress,
+        onOpenPekerja: _openPekerja,
+        onOpenInventoryPupuk: _openInventoryPupuk,
         showHint: _showHint,
         onDismissHint: _dismissHint,
       ),
@@ -225,6 +229,22 @@ class _BerandaScreenState extends State<BerandaScreen> {
     );
   }
 
+  Future<void> _openPekerja() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => PekerjaScreen(lahan: widget.lahan)),
+    );
+  }
+
+  Future<void> _openInventoryPupuk() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => InventoryPupukScreen(lahan: widget.lahan)),
+    );
+  }
+
 }
 
 class _BerandaContent extends StatelessWidget {
@@ -242,6 +262,8 @@ class _BerandaContent extends StatelessWidget {
   final VoidCallback onOpenLaporan;
   final VoidCallback onOpenImportExcel;
   final VoidCallback onOpenPhotoProgress;
+  final VoidCallback onOpenPekerja;
+  final VoidCallback onOpenInventoryPupuk;
   final bool showHint;
   final VoidCallback onDismissHint;
 
@@ -260,6 +282,8 @@ class _BerandaContent extends StatelessWidget {
     required this.onOpenLaporan,
     required this.onOpenImportExcel,
     required this.onOpenPhotoProgress,
+    required this.onOpenPekerja,
+    required this.onOpenInventoryPupuk,
     required this.showHint,
     required this.onDismissHint,
   });
@@ -621,6 +645,18 @@ class _BerandaContent extends StatelessWidget {
                 label: 'Foto Progress',
                 color: const Color(0xFFEC4899),
                 onTap: onOpenPhotoProgress,
+              ),
+              _GridIcon(
+                icon: Icons.groups_rounded,
+                label: 'Tenaga Kerja',
+                color: const Color(0xFF2563EB),
+                onTap: onOpenPekerja,
+              ),
+              _GridIcon(
+                icon: Icons.inventory_2_rounded,
+                label: 'Stok Pupuk',
+                color: const Color(0xFF0D9488),
+                onTap: onOpenInventoryPupuk,
               ),
             ],
           ),
