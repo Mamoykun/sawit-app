@@ -41,7 +41,8 @@ class _ProductionAnalyticsScreenState
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      final list = await _panenRepo.getByLahan(widget.lahan.id, limit: 100);
+      // limit: 500 menampung petani yang punya data 40+ tahun (mustahil dilampaui).
+      final list = await _panenRepo.getByLahan(widget.lahan.id, limit: 500);
       if (mounted) setState(() { _allData = list; _loading = false; });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
@@ -277,7 +278,11 @@ class _ProductionAnalyticsScreenState
             const SizedBox(height: 20),
 
             // Section 3: Bulan Terbaik vs Terlemah
-            if (bestMonth != null && worstMonth != null) ...[
+            // Hanya tampil kalau ada minimal 2 bulan beda — kalau cuma 1 bulan,
+            // best == worst dan section ini tidak bermakna.
+            if (bestMonth != null &&
+                worstMonth != null &&
+                bestMonth.monthIdx != worstMonth.monthIdx) ...[
               _BestWorstCard(
                 bestMonth: bestMonth,
                 worstMonth: worstMonth,
@@ -582,16 +587,19 @@ class _SimpleMonthlyBars extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       // Value on top
-                      Text(
-                        valText,
-                        style: AppTextStyles.mono(11,
-                            color: m != null
-                                ? color
-                                : AppColors.textLight,
-                            weight: FontWeight.w700),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.visible,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          valText,
+                          style: AppTextStyles.mono(11,
+                              color: m != null
+                                  ? color
+                                  : AppColors.textLight,
+                              weight: FontWeight.w700),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.clip,
+                        ),
                       ),
                       const SizedBox(height: 3),
                       // Bar
