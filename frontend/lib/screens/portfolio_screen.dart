@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../models/lahan_model.dart';
 import '../services/api_service.dart';
@@ -172,7 +173,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     );
   }
 
-  void _openLahan(Map<String, dynamic> lahanData) {
+  Future<void> _openLahan(Map<String, dynamic> lahanData) async {
     // Build a lightweight LahanModel from portfolio data to navigate into MainScreen
     final lahan = LahanModel(
       id: (lahanData['lahanId'] as num).toInt(),
@@ -182,10 +183,13 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
       isActive: true,
       faseProduksi: lahanData['fase'] as String?,
     );
+    final prefs = await SharedPreferences.getInstance();
+    final paket = prefs.getString('user_paket') ?? 'GRATIS';
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => MainScreen(lahan: lahan, userPaket: 'GRATIS'),
+        builder: (_) => MainScreen(lahan: lahan, userPaket: paket),
       ),
     );
   }

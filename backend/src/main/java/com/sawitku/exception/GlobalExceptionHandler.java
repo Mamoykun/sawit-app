@@ -5,6 +5,8 @@ import org.springframework.http.*;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -45,6 +47,24 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleMaxUpload(org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(ApiResponse.<Void>builder()
             .success(false).message("Ukuran file terlalu besar. Maksimal 10MB.").code("FILE_TOO_LARGE")
+            .timestamp(LocalDateTime.now()).build());
+    }
+
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoHandlerFound(NoHandlerFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.<Void>builder()
+            .success(false)
+            .message("Resource tidak ditemukan: " + ex.getRequestURL())
+            .code("NOT_FOUND")
+            .timestamp(LocalDateTime.now()).build());
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(NoResourceFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.<Void>builder()
+            .success(false)
+            .message("Resource tidak ditemukan: " + ex.getResourcePath())
+            .code("NOT_FOUND")
             .timestamp(LocalDateTime.now()).build());
     }
 
