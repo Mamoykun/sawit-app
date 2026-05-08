@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'database/app_database.dart';
 import 'services/sync_service.dart';
 import 'services/api_service.dart';
@@ -12,6 +13,9 @@ late final SyncService syncService;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Initialize Indonesian locale data for DateFormat & NumberFormat
+  // (used by laporan PDF, currency display, dll).
+  await initializeDateFormatting('id_ID', null);
   appDb = AppDatabase();
   syncService = SyncService(db: appDb, api: ApiService());
   syncService.init();

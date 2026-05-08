@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
@@ -80,18 +81,32 @@ class _ImportExcelScreenState extends State<ImportExcelScreen> {
           ? await _service.generatePanenTemplate()
           : await _service.generateBiayaTemplate();
 
-      final dir = await getTemporaryDirectory();
       final filename = type == _ImportType.panen
           ? 'template_panen.xlsx'
           : 'template_biaya.xlsx';
-      final file = File('${dir.path}/$filename');
-      await file.writeAsBytes(bytes);
+      final text =
+          'Template import ${type == _ImportType.panen ? "data panen" : "data biaya"}';
+      const mime =
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        subject: filename,
-        text: 'Template import ${type == _ImportType.panen ? "data panen" : "data biaya"}',
-      );
+      if (kIsWeb) {
+        // Web: share_plus web impl triggers a browser download from XFile.fromData
+        await Share.shareXFiles(
+          [XFile.fromData(bytes, name: filename, mimeType: mime)],
+          subject: filename,
+          text: text,
+        );
+      } else {
+        // Mobile/desktop: write to temp dir then share file path
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/$filename');
+        await file.writeAsBytes(bytes);
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          subject: filename,
+          text: text,
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
