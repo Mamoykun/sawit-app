@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import '../theme/app_theme.dart';
 import '../models/lahan_model.dart';
 import '../models/panen_model.dart';
@@ -26,9 +25,6 @@ class _ProductionAnalyticsScreenState
   bool _loading = true;
   late int _selectedYear;
 
-  static const _kMonthAbbr = [
-    'J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'
-  ];
   static const _kMonthNames = [
     'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
     'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
@@ -57,8 +53,7 @@ class _ProductionAnalyticsScreenState
     return [y - 3, y - 2, y - 1, y, y + 1, y + 2];
   }
 
-  /// Data filtered to the selected year, indexed 0–11 (month 1–12).
-  /// Returns a map: month index (0-based) → summed PanenModel-like data.
+  /// Months filtered to selected year, indexed 0–11 (Jan=0, Des=11).
   Map<int, _MonthData> get _monthMap {
     final data = _allData ?? [];
     final filtered = data.where((p) => p.tahun == _selectedYear).toList();
@@ -120,8 +115,7 @@ class _ProductionAnalyticsScreenState
             Text('Analisa Produksi',
                 style: AppTextStyles.display(18, color: Colors.white)),
             Text(widget.lahan.namaLahan,
-                style: AppTextStyles.body(11,
-                    color: const Color(0xFF74C69D))),
+                style: AppTextStyles.body(11, color: const Color(0xFF74C69D))),
           ],
         ),
         actions: [
@@ -176,22 +170,22 @@ class _ProductionAnalyticsScreenState
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 72,
-                height: 72,
+                width: 80,
+                height: 80,
                 decoration: BoxDecoration(
                   color: AppColors.primaryTint,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
                 ),
-                child: const Icon(Icons.show_chart_rounded,
-                    size: 36, color: AppColors.primary3),
+                child: const Icon(Icons.bar_chart_rounded,
+                    size: 40, color: AppColors.primary3),
               ),
               const SizedBox(height: 20),
-              Text('Belum Ada Data', style: AppTextStyles.display(20)),
+              Text('Belum Ada Data Panen',
+                  style: AppTextStyles.display(20)),
               const SizedBox(height: 8),
               Text(
-                'Tidak ada data panen untuk tahun $_selectedYear',
-                style:
-                    AppTextStyles.body(13, color: AppColors.textMuted),
+                'Tidak ada data panen untuk tahun $_selectedYear.\nTambah data panen tiap bulan untuk melihat analisa.',
+                style: AppTextStyles.body(14, color: AppColors.textMuted),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -200,241 +194,166 @@ class _ProductionAnalyticsScreenState
       );
     }
 
-    // Computed summary values
-    final totalTon =
-        monthMap.values.fold(0.0, (a, b) => a + b.tonAktual);
-    final luasHa = monthMap.values.first.luasHa;
-    final yieldTha = luasHa > 0 ? totalTon / luasHa : 0.0;
+    // ── Computed metrics ──────────────────────────────────────────────────────
+    final totalTon = monthMap.values.fold(0.0, (a, b) => a + b.tonAktual);
     final bulanAktif = monthMap.length;
     final avgPerBulan = bulanAktif > 0 ? totalTon / bulanAktif : 0.0;
 
-    // Target reference from first non-zero month
-    double refTargetMin = 0;
-    double refTargetMax = 0;
-    double refTargetMid = 0;
+    double refTargetMin = 0, refTargetMax = 0;
     if (monthMap.isNotEmpty) {
       final first = monthMap.values.first;
       refTargetMin = first.targetMin;
       refTargetMax = first.targetMax;
-      refTargetMid = first.targetMid;
     }
 
-    // Status counts
-    int countNormal = 0, countWarn = 0, countDanger = 0;
+    int countBagus = 0, countKurang = 0, countDefisit = 0;
     for (final m in monthMap.values) {
       switch (m.status) {
-        case 'normal': countNormal++; break;
-        case 'warn': countWarn++; break;
-        default: countDanger++; break;
+        case 'normal': countBagus++; break;
+        case 'warn': countKurang++; break;
+        default: countDefisit++; break;
       }
     }
+
+    // Best and worst month
+    _MonthData? bestMonth, worstMonth;
+    for (final m in monthMap.values) {
+      if (bestMonth == null || m.tonAktual > bestMonth.tonAktual) {
+        bestMonth = m;
+      }
+      if (worstMonth == null || m.tonAktual < worstMonth.tonAktual) {
+        worstMonth = m;
+      }
+    }
+
+    final tips = _buildTips(monthMap, totalTon, bulanAktif, countBagus,
+        countKurang, countDefisit, refTargetMid: monthMap.values.isNotEmpty
+            ? monthMap.values.first.targetMid
+            : 0);
 
     return RefreshIndicator(
       onRefresh: _loadData,
       color: AppColors.primary,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Section A: Summary cards ──────────────────────────────────
-            Row(
-              children: [
-                Expanded(
-                    child: _SummaryCard(
-                  label: 'Total Panen',
-                  value: totalTon.toStringAsFixed(1),
-                  unit: 'ton',
-                  color: AppColors.primary,
-                )),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: _SummaryCard(
-                  label: 'Rata-rata/Bln',
-                  value: avgPerBulan.toStringAsFixed(1),
-                  unit: 'ton',
-                  color: AppColors.primary3,
-                )),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                    child: _SummaryCard(
-                  label: 'Yield',
-                  value: yieldTha.toStringAsFixed(2),
-                  unit: 't/ha',
-                  color: AppColors.gold,
-                )),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: _SummaryCard(
-                  label: 'Bulan Aktif',
-                  value: '$bulanAktif',
-                  unit: 'dari 12',
-                  color: AppColors.textMid,
-                )),
-              ],
+            // Section 1: Ringkasan Tahun Ini
+            _SummaryCardBig(
+              year: _selectedYear,
+              totalTon: totalTon,
+              bulanAktif: bulanAktif,
+              avgPerBulan: avgPerBulan,
+              countBagus: countBagus,
+              countKurang: countKurang + countDefisit,
             ),
             const SizedBox(height: 20),
 
-            // ── Section B: Tonase 12 bulan (line chart) ───────────────────
+            // Section 2: Bar Chart Per Bulan
             AppCard(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Tonase 12 Bulan', style: AppTextStyles.display(15)),
+                  Text('Hasil Panen Tiap Bulan',
+                      style: AppTextStyles.display(17)),
                   const SizedBox(height: 4),
-                  Text('$_selectedYear · ton aktual vs zona target',
-                      style:
-                          AppTextStyles.body(11, color: AppColors.textMuted)),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 200,
-                    child: _TonaseLineChart(
-                      monthMap: monthMap,
-                      targetMin: refTargetMin,
-                      targetMax: refTargetMax,
-                      monthAbbr: _kMonthAbbr,
-                    ),
+                  Text(
+                    'Hijau = sesuai target  ·  Kuning = sedikit kurang  ·  Merah = perlu perhatian',
+                    style: AppTextStyles.body(13, color: AppColors.textMuted),
                   ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 14,
-                    runSpacing: 6,
-                    children: [
-                      _ChartLegend(
-                          color: AppColors.primary3, label: 'Aktual', line: true),
-                      _ChartLegend(
-                          color: AppColors.primary3.withOpacity(0.25),
-                          label: 'Zona Target',
-                          line: false,
-                          band: true),
-                    ],
+                  const SizedBox(height: 18),
+                  _SimpleMonthlyBars(
+                    monthMap: monthMap,
+                    monthNames: _kMonthNames,
+                    targetMin: refTargetMin,
+                    targetMax: refTargetMax,
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
-            // ── Section C: Yield bar chart ────────────────────────────────
-            AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Yield per Hektar', style: AppTextStyles.display(15)),
-                  const SizedBox(height: 4),
-                  Text('t/ha per bulan · garis target = ${(refTargetMid / (luasHa > 0 ? luasHa : 1)).toStringAsFixed(2)} t/ha',
-                      style:
-                          AppTextStyles.body(11, color: AppColors.textMuted)),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 180,
-                    child: _YieldBarChart(
-                      monthMap: monthMap,
-                      targetMid: refTargetMid,
-                      luasHa: luasHa,
-                      monthAbbr: _kMonthAbbr,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 14,
-                    runSpacing: 6,
-                    children: [
-                      _ChartLegend(
-                          color: AppColors.primary3, label: 'Normal'),
-                      _ChartLegend(
-                          color: AppColors.warn, label: 'Warn'),
-                      _ChartLegend(
-                          color: AppColors.danger, label: 'Danger'),
-                      _ChartLegend(
-                          color: AppColors.gold,
-                          label: 'Target mid',
-                          line: true),
-                    ],
-                  ),
-                ],
+            // Section 3: Bulan Terbaik vs Terlemah
+            if (bestMonth != null && worstMonth != null) ...[
+              _BestWorstCard(
+                bestMonth: bestMonth,
+                worstMonth: worstMonth,
+                monthNames: _kMonthNames,
+                year: _selectedYear,
+                avgPerBulan: avgPerBulan,
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 20),
+            ],
 
-            // ── Section D: Akumulasi YTD ──────────────────────────────────
-            AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Akumulasi Panen YTD',
-                      style: AppTextStyles.display(15)),
-                  const SizedBox(height: 4),
-                  Text('Running total Jan–Des $_selectedYear',
-                      style:
-                          AppTextStyles.body(11, color: AppColors.textMuted)),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 180,
-                    child: _CumulativeLineChart(
-                      monthMap: monthMap,
-                      monthNames: _kMonthNames,
-                    ),
-                  ),
-                ],
-              ),
+            // Section 4: Pencapaian Target
+            _AchievementBar(
+              countBagus: countBagus,
+              countKurang: countKurang,
+              countDefisit: countDefisit,
+              bulanAktif: bulanAktif,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
-            // ── Section E: Pencapaian target ──────────────────────────────
-            AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Pencapaian Target', style: AppTextStyles.display(15)),
-                  const SizedBox(height: 4),
-                  Text('Distribusi status seluruh bulan aktif',
-                      style:
-                          AppTextStyles.body(11, color: AppColors.textMuted)),
-                  const SizedBox(height: 16),
-                  if (bulanAktif == 0)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Text('Belum ada data panen'),
-                      ),
-                    )
-                  else ...[
-                    _StatusBar(
-                      normal: countNormal,
-                      warn: countWarn,
-                      danger: countDanger,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _StatusCount(
-                            label: 'Normal',
-                            count: countNormal,
-                            color: AppColors.primary3),
-                        _StatusCount(
-                            label: 'Warn',
-                            count: countWarn,
-                            color: AppColors.warn),
-                        _StatusCount(
-                            label: 'Danger',
-                            count: countDanger,
-                            color: AppColors.danger),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
+            // Section 5: Tips Praktis
+            if (tips.isNotEmpty)
+              _TipsCard(tips: tips),
           ],
         ),
       ),
     );
+  }
+
+  List<String> _buildTips(
+    Map<int, _MonthData> monthMap,
+    double totalTon,
+    int bulanAktif,
+    int countBagus,
+    int countKurang,
+    int countDefisit, {
+    required double refTargetMid,
+  }) {
+    final tips = <String>[];
+
+    // Tip: bulan defisit berat (persen kurang > 20%)
+    for (final m in monthMap.values) {
+      if (m.status == 'danger') {
+        final label = m.monthIdx < _kMonthNames.length
+            ? _kMonthNames[m.monthIdx]
+            : 'Bulan ${m.monthIdx + 1}';
+        final pct = refTargetMid > 0
+            ? ((refTargetMid - m.tonAktual) / refTargetMid * 100)
+                .clamp(0, 100)
+                .toStringAsFixed(0)
+            : '?';
+        tips.add(
+            '$label panen turun $pct%. Cek kondisi pohon, pemupukan, dan curah hujan bulan tersebut.');
+        break; // hanya satu tip per kategori agar tidak terlalu panjang
+      }
+    }
+
+    // Tip: konsistensi bagus
+    if (bulanAktif >= 3 && countBagus == bulanAktif) {
+      tips.add(
+          'Kebun Anda sangat stabil! Semua $countBagus bulan sesuai target. Pertahankan jadwal pemupukan dan perawatan.');
+    } else if (bulanAktif >= 4) {
+      final pct = (countBagus / bulanAktif * 100).round();
+      if (pct >= 75) {
+        tips.add(
+            '$pct% bulan sudah sesuai target. Teruskan kebiasaan baik ini untuk hasil lebih konsisten.');
+      }
+    }
+
+    // Tip: data belum lengkap
+    if (bulanAktif < 12) {
+      final sisa = 12 - bulanAktif;
+      tips.add(
+          'Masih ada $sisa bulan yang belum diisi. Lengkapi data tiap bulan agar analisa lebih akurat.');
+    }
+
+    return tips;
   }
 }
 
@@ -460,655 +379,632 @@ class _MonthData {
     required this.luasHa,
     required this.status,
   });
+
+  Color get barColor {
+    switch (status) {
+      case 'normal': return AppColors.primary3;
+      case 'warn': return const Color(0xFFD97706); // amber-600
+      default: return AppColors.danger;
+    }
+  }
 }
 
-// ─── Summary card ─────────────────────────────────────────────────────────────
+// ─── Section 1: Ringkasan Tahun Ini ─────────────────────────────────────────
 
-class _SummaryCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final String unit;
-  final Color color;
+class _SummaryCardBig extends StatelessWidget {
+  final int year;
+  final double totalTon;
+  final int bulanAktif;
+  final double avgPerBulan;
+  final int countBagus;
+  final int countKurang;
 
-  const _SummaryCard({
-    required this.label,
-    required this.value,
-    required this.unit,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label,
-                style: AppTextStyles.body(11, color: AppColors.textMuted)),
-            const SizedBox(height: 4),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(value,
-                    style: AppTextStyles.mono(22,
-                        color: color, weight: FontWeight.w700)),
-                const SizedBox(width: 4),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 3),
-                  child: Text(unit,
-                      style: AppTextStyles.body(11,
-                          color: AppColors.textMuted)),
-                ),
-              ],
-            ),
-          ],
-        ),
-      );
-}
-
-// ─── Chart legend item ────────────────────────────────────────────────────────
-
-class _ChartLegend extends StatelessWidget {
-  final Color color;
-  final String label;
-  final bool line;
-  final bool band;
-
-  const _ChartLegend({
-    required this.color,
-    required this.label,
-    this.line = false,
-    this.band = false,
-  });
-
-  @override
-  Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (band)
-            Container(
-              width: 18,
-              height: 10,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            )
-          else if (line)
-            Container(
-              width: 18,
-              height: 2,
-              color: color,
-            )
-          else
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          const SizedBox(width: 5),
-          Text(label,
-              style: AppTextStyles.body(11, color: AppColors.textMuted)),
-        ],
-      );
-}
-
-// ─── Tonase line chart ────────────────────────────────────────────────────────
-
-class _TonaseLineChart extends StatelessWidget {
-  final Map<int, _MonthData> monthMap;
-  final double targetMin;
-  final double targetMax;
-  final List<String> monthAbbr;
-
-  const _TonaseLineChart({
-    required this.monthMap,
-    required this.targetMin,
-    required this.targetMax,
-    required this.monthAbbr,
+  const _SummaryCardBig({
+    required this.year,
+    required this.totalTon,
+    required this.bulanAktif,
+    required this.avgPerBulan,
+    required this.countBagus,
+    required this.countKurang,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Build spots only for months with data (gap for missing)
-    final List<List<FlSpot>> segments = [];
-    List<FlSpot> current = [];
-
-    for (int i = 0; i < 12; i++) {
-      final m = monthMap[i];
-      if (m != null) {
-        current.add(FlSpot(i.toDouble(), m.tonAktual));
-      } else {
-        if (current.isNotEmpty) {
-          segments.add(List.from(current));
-          current = [];
-        }
-      }
-    }
-    if (current.isNotEmpty) segments.add(current);
-
-    // Build all spots for maxY computation
-    final allTon = monthMap.values.map((m) => m.tonAktual);
-    final maxTon = allTon.isEmpty
-        ? targetMax
-        : allTon.reduce((a, b) => a > b ? a : b);
-    final maxY = (maxTon > targetMax ? maxTon : targetMax) * 1.25;
-
-    // Target zone
-    final targetMinSpots = List.generate(
-        12, (i) => FlSpot(i.toDouble(), targetMin));
-    final targetMaxSpots = List.generate(
-        12, (i) => FlSpot(i.toDouble(), targetMax));
-
-    final List<LineChartBarData> lines = [];
-
-    // Target band (filled between min and max)
-    lines.add(LineChartBarData(
-      spots: targetMaxSpots,
-      isCurved: false,
-      color: Colors.transparent,
-      barWidth: 0,
-      dotData: const FlDotData(show: false),
-      belowBarData: BarAreaData(
-        show: true,
-        color: AppColors.primary3.withOpacity(0.18),
-        cutOffY: targetMin,
-        applyCutOffY: true,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1B4332), Color(0xFF2D6A4F)],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: Elevations.level3,
       ),
-    ));
-
-    lines.add(LineChartBarData(
-      spots: targetMinSpots,
-      isCurved: false,
-      color: AppColors.primary3.withOpacity(0.35),
-      barWidth: 1,
-      dotData: const FlDotData(show: false),
-      dashArray: [4, 4],
-    ));
-
-    // Actual data segments
-    for (final seg in segments) {
-      lines.add(LineChartBarData(
-        spots: seg,
-        isCurved: true,
-        curveSmoothness: 0.3,
-        color: AppColors.primary3,
-        barWidth: 2.5,
-        dotData: FlDotData(
-          show: true,
-          getDotPainter: (spot, pct, bar, idx) => FlDotCirclePainter(
-            radius: 3.5,
-            color: AppColors.primary3,
-            strokeWidth: 1.5,
-            strokeColor: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Year badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.18),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'TAHUN $year',
+              style: AppTextStyles.body(12,
+                  color: Colors.white70, weight: FontWeight.w600),
+            ),
           ),
-        ),
-        belowBarData: BarAreaData(
-          show: true,
-          color: AppColors.primary3.withOpacity(0.05),
-        ),
-      ));
-    }
+          const SizedBox(height: 14),
 
-    return LineChart(
-      LineChartData(
-        minX: 0,
-        maxX: 11,
-        minY: 0,
-        maxY: maxY,
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: maxY / 4,
-          getDrawingHorizontalLine: (_) =>
-              const FlLine(color: AppColors.border, strokeWidth: 1),
-        ),
-        borderData: FlBorderData(show: false),
-        titlesData: FlTitlesData(
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 40,
-              interval: maxY / 4,
-              getTitlesWidget: (v, _) => Text(
-                v.toStringAsFixed(0),
-                style: AppTextStyles.body(9, color: AppColors.textLight),
+          // Label
+          Row(
+            children: [
+              const Text('\u{1F33E}', style: TextStyle(fontSize: 22)),
+              const SizedBox(width: 8),
+              Text('Total Hasil Panen Anda',
+                  style: AppTextStyles.body(16, color: Colors.white70)),
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          // Big number
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                totalTon.toStringAsFixed(0),
+                style: AppTextStyles.mono(56,
+                    color: Colors.white, weight: FontWeight.w800),
               ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8, left: 6),
+                child: Text('TON',
+                    style: AppTextStyles.body(20,
+                        color: Colors.white60, weight: FontWeight.w600)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Info row
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: [
+                _InfoRow(
+                  icon: Icons.calendar_month_rounded,
+                  text: 'Sudah panen $bulanAktif dari 12 bulan',
+                ),
+                const SizedBox(height: 8),
+                _InfoRow(
+                  icon: Icons.balance_rounded,
+                  text:
+                      'Rata-rata ${avgPerBulan.toStringAsFixed(1)} ton per bulan',
+                ),
+                const SizedBox(height: 8),
+                _InfoRow(
+                  icon: countBagus >= countKurang
+                      ? Icons.check_circle_rounded
+                      : Icons.warning_amber_rounded,
+                  text: countKurang == 0
+                      ? '$countBagus bulan sesuai target — bagus!'
+                      : '$countBagus bulan bagus, $countKurang bulan perlu perhatian',
+                  iconColor: countBagus >= countKurang
+                      ? const Color(0xFF74C69D)
+                      : const Color(0xFFD97706),
+                ),
+              ],
             ),
           ),
-          rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 22,
-              getTitlesWidget: (v, _) {
-                final idx = v.toInt();
-                if (idx < 0 || idx > 11) return const SizedBox.shrink();
-                return Text(monthAbbr[idx],
-                    style:
-                        AppTextStyles.body(9, color: AppColors.textMuted));
-              },
-            ),
-          ),
-        ),
-        lineBarsData: lines,
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
-            tooltipBgColor: AppColors.primary,
-            tooltipRoundedRadius: 8,
-            getTooltipItems: (spots) {
-              return spots
-                  .where((s) => s.barIndex >= 2) // skip target lines
-                  .map((s) {
-                final mIdx = s.x.toInt();
-                final m = monthMap[mIdx];
-                final statusEmoji = m == null
-                    ? ''
-                    : m.status == 'normal'
-                        ? ' ✓'
-                        : m.status == 'warn'
-                            ? ' ⚠'
-                            : ' ✗';
-                final name = mIdx >= 0 && mIdx < 12
-                    ? ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][mIdx]
-                    : '';
-                return LineTooltipItem(
-                  '$name: ${s.y.toStringAsFixed(1)} ton$statusEmoji',
-                  AppTextStyles.body(10, color: Colors.white),
-                );
-              }).toList();
-            },
-          ),
-        ),
+        ],
       ),
     );
   }
 }
 
-// ─── Yield bar chart ──────────────────────────────────────────────────────────
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color? iconColor;
 
-class _YieldBarChart extends StatelessWidget {
+  const _InfoRow({required this.icon, required this.text, this.iconColor});
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          Icon(icon,
+              size: 18, color: iconColor ?? Colors.white70),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                style: AppTextStyles.body(14, color: Colors.white)),
+          ),
+        ],
+      );
+}
+
+// ─── Section 2: Bar Chart Sederhana Per Bulan ────────────────────────────────
+
+class _SimpleMonthlyBars extends StatelessWidget {
   final Map<int, _MonthData> monthMap;
-  final double targetMid;
-  final double luasHa;
-  final List<String> monthAbbr;
+  final List<String> monthNames;
+  final double targetMin;
+  final double targetMax;
 
-  const _YieldBarChart({
+  const _SimpleMonthlyBars({
     required this.monthMap,
-    required this.targetMid,
-    required this.luasHa,
-    required this.monthAbbr,
+    required this.monthNames,
+    required this.targetMin,
+    required this.targetMax,
   });
 
   @override
   Widget build(BuildContext context) {
-    final targetYield = luasHa > 0 ? targetMid / luasHa : 0.0;
-    final groups = <BarChartGroupData>[];
-    double maxY = targetYield * 1.5;
+    // Compute max value for proportional height
+    final maxVal = monthMap.values.isEmpty
+        ? (targetMax > 0 ? targetMax : 30)
+        : monthMap.values
+            .map((m) => m.tonAktual)
+            .reduce((a, b) => a > b ? a : b);
+    final scale = maxVal > 0 ? maxVal : 1.0;
+    const barAreaHeight = 180.0;
 
-    for (int i = 0; i < 12; i++) {
-      final m = monthMap[i];
-      final yieldVal = m != null && luasHa > 0 ? m.tonAktual / luasHa : 0.0;
-      if (yieldVal > maxY) maxY = yieldVal * 1.2;
-
-      final color = m == null
-          ? AppColors.border
-          : m.status == 'normal'
-              ? AppColors.primary3
-              : m.status == 'warn'
-                  ? AppColors.warn
-                  : AppColors.danger;
-
-      groups.add(BarChartGroupData(
-        x: i,
-        barRods: [
-          BarChartRodData(
-            toY: m != null ? yieldVal : 0,
-            color: color,
-            width: 14,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(4)),
-          ),
-        ],
-      ));
-    }
-
-    if (maxY <= 0) maxY = 1;
-
-    return Stack(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        BarChart(
-          BarChartData(
-            maxY: maxY,
-            minY: 0,
-            barGroups: groups,
-            gridData: FlGridData(
-              show: true,
-              drawVerticalLine: false,
-              horizontalInterval: maxY / 4,
-              getDrawingHorizontalLine: (_) =>
-                  const FlLine(color: AppColors.border, strokeWidth: 1),
-            ),
-            borderData: FlBorderData(show: false),
-            titlesData: FlTitlesData(
-              leftTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 40,
-                  interval: maxY / 4,
-                  getTitlesWidget: (v, _) => Text(
-                    v.toStringAsFixed(1),
-                    style: AppTextStyles.body(9, color: AppColors.textLight),
+        SizedBox(
+          height: barAreaHeight + 44, // bars + labels
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: List.generate(12, (i) {
+              final m = monthMap[i];
+              final val = m?.tonAktual ?? 0.0;
+              final color = m?.barColor ?? AppColors.border.withOpacity(0.4);
+              final barHeight =
+                  m != null ? (val / scale * barAreaHeight).clamp(6.0, barAreaHeight) : 0.0;
+              final label = i < monthNames.length ? monthNames[i] : '?';
+              final valText = m != null
+                  ? val.toStringAsFixed(val >= 10 ? 0 : 1)
+                  : '—';
+
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      // Value on top
+                      Text(
+                        valText,
+                        style: AppTextStyles.mono(11,
+                            color: m != null
+                                ? color
+                                : AppColors.textLight,
+                            weight: FontWeight.w700),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.visible,
+                      ),
+                      const SizedBox(height: 3),
+                      // Bar
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeOutCubic,
+                        height: m != null ? barHeight : 4,
+                        decoration: BoxDecoration(
+                          color: m != null ? color : AppColors.border.withOpacity(0.3),
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(5)),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      // Month label
+                      Text(
+                        label,
+                        style: AppTextStyles.body(11,
+                            color: m != null
+                                ? AppColors.textMid
+                                : AppColors.textLight),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false)),
-              topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false)),
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 22,
-                  getTitlesWidget: (v, _) {
-                    final idx = v.toInt();
-                    if (idx < 0 || idx > 11) return const SizedBox.shrink();
-                    return Text(monthAbbr[idx],
-                        style: AppTextStyles.body(9,
-                            color: AppColors.textMuted));
-                  },
-                ),
-              ),
-            ),
-            barTouchData: BarTouchData(
-              touchTooltipData: BarTouchTooltipData(
-                tooltipBgColor: AppColors.primary,
-                tooltipRoundedRadius: 8,
-                getTooltipItem: (group, gi, rod, ri) {
-                  final idx = group.x;
-                  final m = monthMap[idx];
-                  final name = idx >= 0 && idx < 12
-                      ? ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][idx]
-                      : '';
-                  if (m == null) return null;
-                  return BarTooltipItem(
-                    '$name\n${rod.toY.toStringAsFixed(2)} t/ha',
-                    AppTextStyles.body(10, color: Colors.white),
-                  );
-                },
-              ),
-            ),
-          ),
-        ),
-        // Target mid dashed reference line overlay
-        if (targetYield > 0 && maxY > 0)
-          Positioned.fill(
-            child: LayoutBuilder(builder: (context, constraints) {
-              final chartHeight = constraints.maxHeight - 22; // minus x-axis
-              final fraction = (targetYield / maxY).clamp(0.0, 1.0);
-              final topPos = chartHeight * (1 - fraction);
-              return Stack(
-                children: [
-                  Positioned(
-                    top: topPos,
-                    left: 40,
-                    right: 0,
-                    child: _DashedLine(color: AppColors.gold),
-                  ),
-                ],
               );
             }),
           ),
+        ),
+        // Target reference lines legend
+        if (targetMin > 0 || targetMax > 0) ...[
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceAlt,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                _TargetLegendDot(
+                    color: AppColors.primary3,
+                    label: 'Min target: ${targetMin.toStringAsFixed(0)} ton'),
+                const SizedBox(width: 16),
+                _TargetLegendDot(
+                    color: AppColors.gold,
+                    label: 'Max target: ${targetMax.toStringAsFixed(0)} ton'),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
 }
 
-// ─── Cumulative line chart ────────────────────────────────────────────────────
+class _TargetLegendDot extends StatelessWidget {
+  final Color color;
+  final String label;
 
-class _CumulativeLineChart extends StatelessWidget {
-  final Map<int, _MonthData> monthMap;
+  const _TargetLegendDot({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+                color: color, borderRadius: BorderRadius.circular(3)),
+          ),
+          const SizedBox(width: 5),
+          Text(label,
+              style: AppTextStyles.body(12, color: AppColors.textMuted)),
+        ],
+      );
+}
+
+// ─── Section 3: Bulan Terbaik vs Terlemah ───────────────────────────────────
+
+class _BestWorstCard extends StatelessWidget {
+  final _MonthData bestMonth;
+  final _MonthData worstMonth;
   final List<String> monthNames;
+  final int year;
+  final double avgPerBulan;
 
-  const _CumulativeLineChart({
-    required this.monthMap,
+  const _BestWorstCard({
+    required this.bestMonth,
+    required this.worstMonth,
     required this.monthNames,
+    required this.year,
+    required this.avgPerBulan,
   });
 
   @override
   Widget build(BuildContext context) {
-    final spots = <FlSpot>[];
-    double running = 0;
-    int lastMonth = -1;
+    final bestLabel = bestMonth.monthIdx < monthNames.length
+        ? monthNames[bestMonth.monthIdx]
+        : 'Bln ${bestMonth.monthIdx + 1}';
+    final worstLabel = worstMonth.monthIdx < monthNames.length
+        ? monthNames[worstMonth.monthIdx]
+        : 'Bln ${worstMonth.monthIdx + 1}';
 
-    for (int i = 0; i < 12; i++) {
-      final m = monthMap[i];
-      if (m != null) {
-        running += m.tonAktual;
-        spots.add(FlSpot(i.toDouble(), running));
-        lastMonth = i;
-      }
-    }
+    final bestPct = avgPerBulan > 0
+        ? ((bestMonth.tonAktual - avgPerBulan) / avgPerBulan * 100).round()
+        : 0;
+    final worstPct = avgPerBulan > 0
+        ? ((worstMonth.tonAktual - avgPerBulan) / avgPerBulan * 100).round()
+        : 0;
 
-    if (spots.isEmpty) {
-      return const Center(child: Text('Belum ada data'));
-    }
-
-    final maxY = running * 1.25;
-
-    return LineChart(
-      LineChartData(
-        minX: 0,
-        maxX: lastMonth.toDouble(),
-        minY: 0,
-        maxY: maxY,
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: maxY / 4,
-          getDrawingHorizontalLine: (_) =>
-              const FlLine(color: AppColors.border, strokeWidth: 1),
-        ),
-        borderData: FlBorderData(show: false),
-        titlesData: FlTitlesData(
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 42,
-              interval: maxY / 4,
-              getTitlesWidget: (v, _) => Text(
-                v.toStringAsFixed(0),
-                style: AppTextStyles.body(9, color: AppColors.textLight),
-              ),
-            ),
-          ),
-          rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 22,
-              getTitlesWidget: (v, _) {
-                final idx = v.toInt();
-                if (idx < 0 || idx > 11) return const SizedBox.shrink();
-                // Only show label if we have data for this month
-                if (!monthMap.containsKey(idx)) return const SizedBox.shrink();
-                return Text(
-                    idx < monthNames.length ? monthNames[idx] : '',
-                    style:
-                        AppTextStyles.body(9, color: AppColors.textMuted));
-              },
-            ),
+    return Row(
+      children: [
+        Expanded(
+          child: _ComparisonCard(
+            emoji: '\u{1F3C6}',
+            title: 'BULAN TERBAIK',
+            monthLabel: '$bestLabel $year',
+            ton: bestMonth.tonAktual,
+            pctDiff: bestPct,
+            isGood: true,
+            note: 'Pertahankan!',
           ),
         ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            curveSmoothness: 0.3,
-            color: AppColors.primary3,
-            barWidth: 2.5,
-            dotData: FlDotData(
-              show: true,
-              getDotPainter: (spot, pct, bar, idx) => FlDotCirclePainter(
-                radius: 3.5,
-                color: AppColors.primary3,
-                strokeWidth: 1.5,
-                strokeColor: Colors.white,
-              ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _ComparisonCard(
+            emoji: '\u{1F4C9}',
+            title: 'PERLU PERBAIKAN',
+            monthLabel: '$worstLabel $year',
+            ton: worstMonth.tonAktual,
+            pctDiff: worstPct,
+            isGood: false,
+            note: 'Cek penyebabnya',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ComparisonCard extends StatelessWidget {
+  final String emoji;
+  final String title;
+  final String monthLabel;
+  final double ton;
+  final int pctDiff;
+  final bool isGood;
+  final String note;
+
+  const _ComparisonCard({
+    required this.emoji,
+    required this.title,
+    required this.monthLabel,
+    required this.ton,
+    required this.pctDiff,
+    required this.isGood,
+    required this.note,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor =
+        isGood ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB);
+    final accentColor = isGood ? AppColors.primary3 : const Color(0xFFD97706);
+    final borderColor = isGood
+        ? AppColors.primary3.withOpacity(0.3)
+        : const Color(0xFFD97706).withOpacity(0.3);
+    final signStr = pctDiff >= 0 ? '+$pctDiff%' : '$pctDiff%';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderColor),
+        boxShadow: Elevations.level1,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 24)),
+          const SizedBox(height: 8),
+          Text(title,
+              style: AppTextStyles.body(11,
+                  color: accentColor, weight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(monthLabel,
+              style: AppTextStyles.display(14, color: AppColors.text)),
+          const SizedBox(height: 6),
+          Text(
+            '${ton.toStringAsFixed(0)} ton',
+            style: AppTextStyles.mono(22,
+                color: accentColor, weight: FontWeight.w800),
+          ),
+          Text(signStr,
+              style: AppTextStyles.body(13,
+                  color: accentColor.withOpacity(0.8),
+                  weight: FontWeight.w600)),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(8),
             ),
-            belowBarData: BarAreaData(
-              show: true,
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AppColors.primary3.withOpacity(0.22),
-                  AppColors.primary3.withOpacity(0.02),
-                ],
-              ),
-            ),
+            child: Text(note,
+                style: AppTextStyles.body(12,
+                    color: accentColor, weight: FontWeight.w600)),
           ),
         ],
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
-            tooltipBgColor: AppColors.primary,
-            tooltipRoundedRadius: 8,
-            getTooltipItems: (spots) => spots.map((s) {
-              final idx = s.x.toInt();
-              final name =
-                  idx >= 0 && idx < monthNames.length ? monthNames[idx] : '';
-              return LineTooltipItem(
-                '$name (kum.)\n${s.y.toStringAsFixed(1)} ton',
-                AppTextStyles.body(10, color: Colors.white),
-              );
-            }).toList(),
-          ),
-        ),
       ),
     );
   }
 }
 
-// ─── Status stacked bar ───────────────────────────────────────────────────────
+// ─── Section 4: Pencapaian Target ───────────────────────────────────────────
 
-class _StatusBar extends StatelessWidget {
-  final int normal;
-  final int warn;
-  final int danger;
+class _AchievementBar extends StatelessWidget {
+  final int countBagus;
+  final int countKurang;
+  final int countDefisit;
+  final int bulanAktif;
 
-  const _StatusBar(
-      {required this.normal, required this.warn, required this.danger});
+  const _AchievementBar({
+    required this.countBagus,
+    required this.countKurang,
+    required this.countDefisit,
+    required this.bulanAktif,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final total = normal + warn + danger;
-    if (total == 0) return const SizedBox.shrink();
-    return LayoutBuilder(builder: (context, constraints) {
-      final w = constraints.maxWidth;
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(99),
-        child: Row(
-          children: [
-            if (normal > 0)
-              Container(
-                width: w * normal / total,
-                height: 24,
-                color: AppColors.primary3,
+    final total = countBagus + countKurang + countDefisit;
+    final pct = total > 0 ? (countBagus / total * 100).round() : 0;
+
+    return AppCard(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Berapa Bulan yang Sesuai Target?',
+              style: AppTextStyles.display(17)),
+          const SizedBox(height: 6),
+          Text(
+            'Dari $bulanAktif bulan yang sudah dicatat',
+            style: AppTextStyles.body(13, color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 16),
+
+          // Big number
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('$countBagus',
+                  style: AppTextStyles.mono(40,
+                      color: AppColors.primary3, weight: FontWeight.w800)),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6, left: 4),
+                child: Text(' dari $total bulan ($pct%)',
+                    style: AppTextStyles.body(15, color: AppColors.textMuted)),
               ),
-            if (warn > 0)
-              Container(
-                width: w * warn / total,
-                height: 24,
-                color: AppColors.warn,
-              ),
-            if (danger > 0)
-              Container(
-                width: w * danger / total,
-                height: 24,
-                color: AppColors.danger,
-              ),
-          ],
-        ),
-      );
-    });
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Stacked bar
+          if (total > 0)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(99),
+              child: LayoutBuilder(builder: (context, constraints) {
+                final w = constraints.maxWidth;
+                return Row(
+                  children: [
+                    if (countBagus > 0)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 600),
+                        curve: Curves.easeOutCubic,
+                        width: w * countBagus / total,
+                        height: 24,
+                        color: AppColors.primary3,
+                      ),
+                    if (countKurang > 0)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 600),
+                        curve: Curves.easeOutCubic,
+                        width: w * countKurang / total,
+                        height: 24,
+                        color: const Color(0xFFD97706),
+                      ),
+                    if (countDefisit > 0)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 600),
+                        curve: Curves.easeOutCubic,
+                        width: w * countDefisit / total,
+                        height: 24,
+                        color: AppColors.danger,
+                      ),
+                  ],
+                );
+              }),
+            ),
+
+          const SizedBox(height: 12),
+
+          // Legend
+          Wrap(
+            spacing: 14,
+            runSpacing: 6,
+            children: [
+              _LegendItem(
+                  color: AppColors.primary3,
+                  label: 'Bagus  $countBagus bln'),
+              if (countKurang > 0)
+                _LegendItem(
+                    color: const Color(0xFFD97706),
+                    label: 'Kurang  $countKurang bln'),
+              if (countDefisit > 0)
+                _LegendItem(
+                    color: AppColors.danger,
+                    label: 'Defisit  $countDefisit bln'),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 
-class _StatusCount extends StatelessWidget {
-  final String label;
-  final int count;
+class _LegendItem extends StatelessWidget {
   final Color color;
+  final String label;
 
-  const _StatusCount(
-      {required this.label, required this.count, required this.color});
+  const _LegendItem({required this.color, required this.label});
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$count',
-              style: AppTextStyles.mono(22,
-                  color: color, weight: FontWeight.w700)),
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+                color: color, borderRadius: BorderRadius.circular(3)),
+          ),
+          const SizedBox(width: 5),
           Text(label,
-              style: AppTextStyles.body(11, color: AppColors.textMuted)),
-          Text('bulan',
-              style: AppTextStyles.body(10, color: AppColors.textLight)),
+              style: AppTextStyles.body(13, color: AppColors.textMid)),
         ],
       );
 }
 
-// ─── Dashed line ──────────────────────────────────────────────────────────────
+// ─── Section 5: Tips Praktis ─────────────────────────────────────────────────
 
-class _DashedLine extends StatelessWidget {
-  final Color color;
-  const _DashedLine({required this.color});
+class _TipsCard extends StatelessWidget {
+  final List<String> tips;
+
+  const _TipsCard({required this.tips});
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-        builder: (context, constraints) {
-          const dashWidth = 5.0;
-          const dashGap = 4.0;
-          final count =
-              (constraints.maxWidth / (dashWidth + dashGap)).floor();
-          return SizedBox(
-            height: 2,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(
-                count,
-                (_) => SizedBox(
-                  width: dashWidth,
-                  height: 2,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(1),
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('\u{1F4A1}', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Text('Tips Untuk Anda',
+                  style: AppTextStyles.display(16,
+                      color: const Color(0xFF1D4ED8))),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...tips.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final tip = entry.value;
+            return Padding(
+              padding: EdgeInsets.only(top: idx == 0 ? 0 : 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 3),
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF3B82F6),
+                      shape: BoxShape.circle,
                     ),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(tip,
+                        style: AppTextStyles.body(14,
+                            color: const Color(0xFF1E3A5F))),
+                  ),
+                ],
               ),
-            ),
-          );
-        },
-      );
+            );
+          }),
+        ],
+      ),
+    );
+  }
 }
