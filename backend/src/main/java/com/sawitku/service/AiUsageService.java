@@ -66,7 +66,7 @@ public class AiUsageService {
                 stats.costCents(),
                 stats.capCents(),
                 stats.remainingCents(),
-                (int) stats.percentUsed(),
+                (int) Math.round(stats.percentUsed()),
                 paketName);
     }
 
