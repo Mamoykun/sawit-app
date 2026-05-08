@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/help_tooltip.dart';
+import '../widgets/empty_state.dart';
 
 class ProfitLossScreen extends StatefulWidget {
   final LahanModel lahan;
@@ -697,25 +698,12 @@ class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.year});
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(40),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('📊', style: TextStyle(fontSize: 52)),
-              const SizedBox(height: 16),
-              Text('Belum Ada Data untuk $year',
-                  style: AppTextStyles.display(18)),
-              const SizedBox(height: 8),
-              Text(
-                'Input data panen dan biaya untuk melihat laporan untung rugi.',
-                style: AppTextStyles.body(13, color: AppColors.textMuted),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
+  Widget build(BuildContext context) => EmptyState.icon(
+        iconData: Icons.account_balance_wallet_outlined,
+        title: 'Belum Ada Data',
+        message:
+            'Untuk lihat untung-rugi, perlu input panen dan biaya minimal 1 bulan di tahun ini.',
+        accent: AppColors.primary,
       );
 }
 

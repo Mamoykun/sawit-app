@@ -331,8 +331,10 @@ class _BiayaScreenState extends State<BiayaScreen> {
                         iconData: Icons.receipt_long_rounded,
                         title: 'Belum Ada Catatan Biaya',
                         message:
-                            'Tap tombol + untuk catat pengeluaran pertama Anda — pupuk, tenaga kerja, pestisida, dan lainnya.',
+                            'Catat pengeluaran kebun (pupuk, tenaga kerja, pestisida) untuk analisa untung-rugi yang akurat.',
                         accent: AppColors.gold,
+                        actionLabel: 'Tambah Biaya Pertama',
+                        onAction: () => _openForm(),
                       ),
                     ] else ...[
                       const SizedBox(height: 24),

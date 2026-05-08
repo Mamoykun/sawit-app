@@ -8,6 +8,7 @@ import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/sawit_logo.dart';
+import '../widgets/empty_state.dart';
 import 'main_screen.dart';
 import 'login_screen.dart';
 import 'portfolio_screen.dart';
@@ -368,26 +369,14 @@ class _EmptyLahan extends StatelessWidget {
   const _EmptyLahan({required this.onAdd});
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(40),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const SawitLogo(size: 80),
-          const SizedBox(height: 20),
-          Text('Belum Ada Kebun', style: AppTextStyles.display(20)),
-          const SizedBox(height: 8),
-          Text(
-            'Tambahkan data kebun sawit pertama Anda untuk mulai memantau produksi',
-            style: AppTextStyles.body(13, color: AppColors.textMuted),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 28),
-          PrimaryButton(label: '+ Tambah Kebun', onTap: onAdd),
-        ],
-      ),
-    ),
+  Widget build(BuildContext context) => EmptyState.icon(
+    iconData: Icons.agriculture_rounded,
+    title: 'Kebun Pertama Anda',
+    message:
+        'Belum ada kebun terdaftar. Tambahkan kebun sawit Anda untuk mulai mencatat panen dan mengelola biaya.',
+    accent: AppColors.primary,
+    actionLabel: 'Tambah Kebun',
+    onAction: onAdd,
   );
 }
 

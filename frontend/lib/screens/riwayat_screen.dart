@@ -15,6 +15,7 @@ import '../widgets/common_widgets.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/app_dialog.dart';
 import '../widgets/app_snackbar.dart';
+import '../widgets/empty_state.dart';
 import 'biaya_screen.dart';
 
 // ─── Month aggregation ────────────────────────────────────────────────────────
@@ -568,33 +569,12 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
     final allData = _data ?? [];
 
     if (allData.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(40),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryTint,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(Icons.bar_chart_rounded,
-                    size: 36, color: AppColors.primary3),
-              ),
-              const SizedBox(height: 20),
-              Text('Belum Ada Riwayat', style: AppTextStyles.display(20)),
-              const SizedBox(height: 8),
-              Text(
-                'Input data panen untuk melihat riwayat produksi',
-                style: AppTextStyles.body(13, color: AppColors.textMuted),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
+      return EmptyState.icon(
+        iconData: Icons.history_rounded,
+        title: 'Belum Ada Riwayat',
+        message:
+            'Riwayat panen akan muncul di sini setelah Anda input panen pertama.',
+        accent: AppColors.primary,
       );
     }
 

@@ -117,10 +117,11 @@ class _DiagnosaHistoryScreenState extends State<DiagnosaHistoryScreen> {
   Widget _buildBody() {
     final data = _data ?? [];
     if (data.isEmpty) {
-      return EmptyState.illustrated(
+      return EmptyState.icon(
+        iconData: Icons.photo_camera_outlined,
         title: 'Belum Ada Diagnosa',
         message:
-            'Foto buah, batang, atau pelepah sawit untuk melihat diagnosa visual otomatis di sini.',
+            'Foto daun, tandan, atau pohon yang bermasalah untuk dapat diagnosa AI.',
         accent: AppColors.accent,
       );
     }

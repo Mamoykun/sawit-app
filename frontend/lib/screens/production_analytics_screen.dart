@@ -9,6 +9,7 @@ import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/help_tooltip.dart';
+import '../widgets/empty_state.dart';
 
 class ProductionAnalyticsScreen extends StatefulWidget {
   final LahanModel lahan;
@@ -181,34 +182,12 @@ class _ProductionAnalyticsScreenState
     final monthMap = _monthMap;
 
     if (monthMap.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(40),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryTint,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: const Icon(Icons.bar_chart_rounded,
-                    size: 40, color: AppColors.primary3),
-              ),
-              const SizedBox(height: 20),
-              Text('Belum Ada Data Panen',
-                  style: AppTextStyles.display(20)),
-              const SizedBox(height: 8),
-              Text(
-                'Tidak ada data panen untuk tahun $_selectedYear.\nTambah data panen tiap bulan untuk melihat analisa.',
-                style: AppTextStyles.body(14, color: AppColors.textMuted),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
+      return EmptyState.icon(
+        iconData: Icons.bar_chart_rounded,
+        title: 'Belum Ada Data $_selectedYear',
+        message:
+            'Tidak ada panen tahun $_selectedYear. Pilih tahun lain dari dropdown atau tambah data panen baru.',
+        accent: AppColors.primary,
       );
     }
 

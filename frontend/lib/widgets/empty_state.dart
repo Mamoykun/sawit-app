@@ -42,30 +42,40 @@ class EmptyState extends StatelessWidget {
       );
 
   /// Compact icon variant (tinted circle).
+  ///
+  /// Pass [actionLabel] + [onAction] together to render a CTA button.
+  /// Alternatively pass a fully custom [action] widget.
   factory EmptyState.icon({
     Key? key,
     required IconData iconData,
     required String title,
     required String message,
     Widget? action,
+    String? actionLabel,
+    VoidCallback? onAction,
     Color accent = AppColors.primary,
-  }) =>
-      EmptyState(
-        key: key,
-        title: title,
-        message: message,
-        action: action,
-        accent: accent,
-        illustration: Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            color: accent.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(22),
-          ),
-          child: Icon(iconData, size: 38, color: accent),
+  }) {
+    final resolvedAction = action ??
+        (actionLabel != null && onAction != null
+            ? _ActionButton(label: actionLabel, onTap: onAction, accent: accent)
+            : null);
+    return EmptyState(
+      key: key,
+      title: title,
+      message: message,
+      action: resolvedAction,
+      accent: accent,
+      illustration: Container(
+        width: 80,
+        height: 80,
+        decoration: BoxDecoration(
+          color: accent.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(22),
         ),
-      );
+        child: Icon(iconData, size: 38, color: accent),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,6 +107,31 @@ class EmptyState extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Internal CTA button used by EmptyState.icon when actionLabel+onAction are set.
+class _ActionButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final Color accent;
+  const _ActionButton({required this.label, required this.onTap, required this.accent});
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: onTap,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: accent,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            elevation: 0,
+          ),
+          child: Text(label,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+        ),
+      );
 }
 
 /// Leaf-and-seed brand illustration. Three stylized fronds + gold seed

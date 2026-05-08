@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../repositories/panen_repository.dart';
 import '../main.dart' show appDb;
 import '../widgets/common_widgets.dart';
+import '../widgets/empty_state.dart';
 import 'input_panen_screen.dart';
 import 'riwayat_screen.dart';
 import 'biaya_screen.dart';
@@ -473,55 +474,14 @@ class _BerandaContent extends StatelessWidget {
               ),
           ] else ...[
             // Empty state
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.primaryTint,
-                    AppColors.primaryTint.withOpacity(0.5)
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                border: Border.all(color: AppColors.primary3.withOpacity(0.3)),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary3.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Icon(Icons.eco_rounded,
-                        color: AppColors.primary3, size: 26),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Belum Ada Data Panen',
-                            style: AppTextStyles.display(16,
-                                color: AppColors.primary)),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Input data panen pertama untuk melihat analisa dan tren.',
-                          style: AppTextStyles.body(12,
-                              color: AppColors.primary3),
-                        ),
-                        const SizedBox(height: 14),
-                        PrimaryButton(
-                            label: 'Input Sekarang',
-                            onTap: onOpenInput),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            EmptyState.icon(
+              iconData: Icons.add_chart_rounded,
+              title: 'Mulai Catat Panen',
+              message:
+                  'Input panen pertama Anda untuk lihat analisa AI, target produksi, dan tren bulanan.',
+              accent: AppColors.primary,
+              actionLabel: 'Input Panen Pertama',
+              onAction: onOpenInput,
             ),
             const SizedBox(height: 14),
           ],

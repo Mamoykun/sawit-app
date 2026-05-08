@@ -170,7 +170,7 @@ class _PerbandinganScreenState extends State<PerbandinganScreen> {
         iconData: Icons.compare_arrows_rounded,
         title: 'Butuh Minimal 2 Kebun',
         message:
-            'Tambah kebun lain dulu untuk membandingkan kinerja antar lahan.',
+            'Komparasi memerlukan minimal 2 kebun. Tambahkan kebun lain dari halaman Pilih Kebun untuk membandingkan kinerja.',
         accent: const Color(0xFF2563EB),
       );
     }
