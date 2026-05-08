@@ -34,6 +34,7 @@ class _MainScreenState extends State<MainScreen> {
   HasilAnalisa? _lastAnalisa;
   AnalisaDataInfo? _analisaDataInfo;
   AiUsageStatsModel? _aiStats;
+  bool _analisaRetryScheduled = false;
 
   @override
   void initState() {
@@ -75,6 +76,11 @@ class _MainScreenState extends State<MainScreen> {
               widget.lahan.lokasi!.isNotEmpty,
         );
       });
+      // If analisa is null (async AI not yet computed), schedule retries.
+      if (last.analisa == null && !_analisaRetryScheduled) {
+        _analisaRetryScheduled = true;
+        _scheduleAnalisaRetry(last.id, 3);
+      }
       try {
         final stats = await ApiService().getAiUsageStats();
         if (mounted) setState(() => _aiStats = stats);
@@ -82,6 +88,32 @@ class _MainScreenState extends State<MainScreen> {
         // Silent fallback — quota UI optional
       }
     } catch (_) {}
+  }
+
+  /// Retries loading analisa up to [maxRetries] times with a 2s gap.
+  /// Stops early if analisa becomes non-null.
+  Future<void> _scheduleAnalisaRetry(int? panenId, int maxRetries) async {
+    for (int i = 0; i < maxRetries; i++) {
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      try {
+        final panenRepo = PanenRepository(db: appDb, api: ApiService());
+        final list = await panenRepo.getByLahan(widget.lahan.id, limit: 1);
+        if (!mounted) return;
+        if (list.isNotEmpty && list.first.analisa != null) {
+          final updated = list.first;
+          final penyebab = updated.analisa!.penyebab.isNotEmpty
+              ? updated.analisa!.penyebab
+              : AnalisaService.getPenyebab(updated.persenKurang);
+          setState(() {
+            _lastAnalisa = HasilAnalisa(panen: updated, penyebab: penyebab);
+          });
+          return; // Analisa arrived — stop retrying
+        }
+      } catch (_) {
+        // Swallow errors, keep retrying
+      }
+    }
   }
 
   void _onAnalisaDone(HasilAnalisa hasil) {

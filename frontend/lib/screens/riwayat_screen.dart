@@ -336,6 +336,15 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
     );
   }
 
+  static String _statusLabel(String value) {
+    switch (value) {
+      case 'normal': return 'Normal';
+      case 'warn': return 'Sedikit Kurang';
+      case 'danger': return 'Perlu Tindakan';
+      default: return value[0].toUpperCase() + value.substring(1);
+    }
+  }
+
   void _showStatusPicker() {
     showModalBottomSheet(
       context: context,
@@ -345,8 +354,8 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
         options: [
           _PickerOption(label: 'Semua Status', value: ''),
           _PickerOption(label: 'Normal', value: 'normal', color: AppColors.primary3),
-          _PickerOption(label: 'Warn', value: 'warn', color: AppColors.warn),
-          _PickerOption(label: 'Danger', value: 'danger', color: AppColors.danger),
+          _PickerOption(label: 'Sedikit Kurang', value: 'warn', color: AppColors.warn),
+          _PickerOption(label: 'Perlu Tindakan', value: 'danger', color: AppColors.danger),
         ],
         selectedValue: _statusFilter ?? '',
         onSelect: (v) {
@@ -713,7 +722,7 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
                 ),
                 const SizedBox(width: 8),
                 _FilterChipBtn(
-                  label: 'Status: ${_statusFilter == null ? 'Semua' : _statusFilter![0].toUpperCase() + _statusFilter!.substring(1)}',
+                  label: 'Status: ${_statusFilter == null ? 'Semua' : _statusLabel(_statusFilter!)}',
                   selected: _statusFilter != null,
                   onTap: _showStatusPicker,
                 ),

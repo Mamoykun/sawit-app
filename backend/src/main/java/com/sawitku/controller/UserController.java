@@ -62,7 +62,7 @@ public class UserController {
 
     /// AI usage stats for the authenticated user (current billing period).
     @GetMapping("/me/ai-usage")
-    public ResponseEntity<ApiResponse<AiUsageService.AiUsageStats>> getAiUsage(
+    public ResponseEntity<ApiResponse<AiUsageService.AiUsageStatsDto>> getAiUsage(
             @AuthenticationPrincipal User user) {
         return ResponseUtil.ok(aiUsageService.getStats(user.getId()));
     }

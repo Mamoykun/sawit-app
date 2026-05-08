@@ -36,13 +36,38 @@ public class AiUsageService {
     private static final int CAP_PETANI = 150;
     private static final int CAP_PRO    = 1000;
 
-    /** Stats snapshot for the current billing period. */
+    /** Internal stats snapshot (used by canSpend / internal callers). */
     public record AiUsageStats(int callCount, int totalTokens, int costCents, int capCents) {
         public int remainingCents() { return Math.max(0, capCents - costCents); }
         public double percentUsed() {
             if (capCents <= 0) return 0.0;
             return Math.min(100.0, (costCents * 100.0) / capCents);
         }
+    }
+
+    /**
+     * Public DTO returned by the REST API.
+     * All 7 fields are explicit so Jackson serializes them correctly.
+     */
+    public record AiUsageStatsDto(
+            int callCount,
+            int totalTokens,
+            int costCents,
+            int capCents,
+            int remainingCents,
+            int percentUsed,
+            String paket) {}
+
+    /** Builds an {@link AiUsageStatsDto} from an internal {@link AiUsageStats} and a paket name. */
+    private AiUsageStatsDto toDto(AiUsageStats stats, String paketName) {
+        return new AiUsageStatsDto(
+                stats.callCount(),
+                stats.totalTokens(),
+                stats.costCents(),
+                stats.capCents(),
+                stats.remainingCents(),
+                (int) stats.percentUsed(),
+                paketName);
     }
 
     /** Record a completed Claude call and persist the cost. */
@@ -76,14 +101,21 @@ public class AiUsageService {
         }
     }
 
-    /** Returns usage stats for the authenticated user in the current period. */
-    public AiUsageStats getStats(Long userId) {
+    /** Returns usage stats DTO for the authenticated user in the current period. */
+    public AiUsageStatsDto getStats(Long userId) {
         String period = currentPeriod();
         int callCount    = (int) aiUsageRepository.countByUserIdAndPeriod(userId, period);
         int totalTokens  = aiUsageRepository.sumTokensByUserPeriod(userId, period);
         int costCents    = aiUsageRepository.sumCostByUserPeriod(userId, period);
         int capCents     = capForUser(userId);
-        return new AiUsageStats(callCount, totalTokens, costCents, capCents);
+        AiUsageStats stats = new AiUsageStats(callCount, totalTokens, costCents, capCents);
+        String paketName;
+        try {
+            paketName = subscriptionService.getPaket(userId).name();
+        } catch (Exception e) {
+            paketName = "GRATIS";
+        }
+        return toDto(stats, paketName);
     }
 
     // ─── Internal helpers ─────────────────────────────────────────────────────
