@@ -140,11 +140,19 @@ public class AiUsageService {
     }
 
     private int computeCost(ClaudeService.ClaudeModel model, int inputTokens, int outputTokens) {
-        return switch (model) {
-            case HAIKU  -> (inputTokens  * HAIKU_INPUT_CENTS_PER_M  / 1_000_000)
-                         + (outputTokens * HAIKU_OUTPUT_CENTS_PER_M / 1_000_000);
-            case SONNET -> (inputTokens  * SONNET_INPUT_CENTS_PER_M  / 1_000_000)
-                         + (outputTokens * SONNET_OUTPUT_CENTS_PER_M / 1_000_000);
-        };
+        // Use long arithmetic to avoid int overflow and intermediate truncation-to-zero.
+        // Ceil division ensures any non-zero token usage records at least 1 cent cost,
+        // preventing budget-cap bypass via many small calls that each compute to 0.
+        long inputCentsPerM;
+        long outputCentsPerM;
+        switch (model) {
+            case HAIKU  -> { inputCentsPerM = HAIKU_INPUT_CENTS_PER_M;  outputCentsPerM = HAIKU_OUTPUT_CENTS_PER_M;  }
+            case SONNET -> { inputCentsPerM = SONNET_INPUT_CENTS_PER_M; outputCentsPerM = SONNET_OUTPUT_CENTS_PER_M; }
+            default -> { return 0; }
+        }
+        long microCents = (long) inputTokens * inputCentsPerM + (long) outputTokens * outputCentsPerM;
+        // Ceil division: (n + 999_999) / 1_000_000
+        long cents = (microCents + 999_999L) / 1_000_000L;
+        return (int) cents;
     }
 }

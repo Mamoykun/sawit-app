@@ -43,7 +43,7 @@ class _MainScreenState extends State<MainScreen> {
     _loadLastAnalisa();
   }
 
-  Future<void> _loadLastAnalisa() async {
+  Future<void> _loadLastAnalisa({bool fromRetry = false}) async {
     try {
       final panenRepo = PanenRepository(db: appDb, api: ApiService());
       final biayaRepo = BiayaRepository(db: appDb, api: ApiService());
@@ -114,12 +114,15 @@ class _MainScreenState extends State<MainScreen> {
         );
       });
       // If analisa is null (async AI not yet computed), schedule retries.
-      if (base.analisa != null) {
-        // Analisa already arrived — clear retry guard so next pending case can retry.
-        _analisaRetryScheduled = false;
-      } else if (!_analisaRetryScheduled) {
-        _analisaRetryScheduled = true;
-        _scheduleAnalisaRetry(3);
+      // fromRetry guard prevents infinite recursion: retry → _loadLastAnalisa → retry.
+      if (!fromRetry) {
+        if (base.analisa != null) {
+          // Analisa already arrived — clear retry guard so next pending case can retry.
+          _analisaRetryScheduled = false;
+        } else if (!_analisaRetryScheduled) {
+          _analisaRetryScheduled = true;
+          _scheduleAnalisaRetry(3);
+        }
       }
       try {
         final stats = await ApiService().getAiUsageStats();
@@ -131,29 +134,16 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   /// Retries loading analisa up to [maxRetries] times with a 2s gap.
-  /// Stops early if analisa becomes non-null.
+  /// Delegates to [_loadLastAnalisa] so aggregation, dataInfo, and aiStats
+  /// are all updated consistently. Uses fromRetry=true to prevent recursion.
   Future<void> _scheduleAnalisaRetry(int maxRetries) async {
     try {
       for (int i = 0; i < maxRetries; i++) {
         await Future.delayed(const Duration(seconds: 2));
         if (!mounted) return;
-        try {
-          final panenRepo = PanenRepository(db: appDb, api: ApiService());
-          final list = await panenRepo.getByLahan(widget.lahan.id, limit: 1);
-          if (!mounted) return;
-          if (list.isNotEmpty && list.first.analisa != null) {
-            final updated = list.first;
-            final penyebab = updated.analisa!.penyebab.isNotEmpty
-                ? updated.analisa!.penyebab
-                : AnalisaService.getPenyebab(updated.persenKurang);
-            setState(() {
-              _lastAnalisa = HasilAnalisa(panen: updated, penyebab: penyebab);
-            });
-            return; // Analisa arrived — stop retrying
-          }
-        } catch (_) {
-          // Swallow errors, keep retrying
-        }
+        await _loadLastAnalisa(fromRetry: true);
+        // Stop early if analisa arrived.
+        if (_lastAnalisa?.panen.analisa != null) return;
       }
     } finally {
       _analisaRetryScheduled = false; // Always clear guard so future panen creates can retry

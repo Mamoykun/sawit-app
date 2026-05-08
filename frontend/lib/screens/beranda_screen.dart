@@ -75,7 +75,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      final list = await _panenRepo.getByLahan(widget.lahan.id, limit: 8);
+      final list = await _panenRepo.getByLahan(widget.lahan.id, limit: 50);
       setState(() { _history = list; _loading = false; });
     } catch (_) {
       setState(() { _history = []; _loading = false; });
