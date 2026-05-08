@@ -273,7 +273,9 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
         final inBulan = p.bulan.toLowerCase().contains(q);
-        return inBulan;
+        final inTahun = (p.tahun ?? 0).toString().contains(q);
+        final inTon = p.tonAktual.toStringAsFixed(1).contains(q);
+        return inBulan || inTahun || inTon;
       }
       return true;
     }).toList();

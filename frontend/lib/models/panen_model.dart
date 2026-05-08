@@ -1,3 +1,5 @@
+import '../theme/app_constants.dart';
+
 class PanenModel {
   final int? id;
   final int? lahanId;
@@ -33,7 +35,7 @@ class PanenModel {
     this.tanggal,
     this.statusPanen,
     this.persenKurang = 0,
-    this.hargaPerTon = 2400000,
+    this.hargaPerTon = AppConstants.defaultHargaTbs,
     this.analisa,
   });
 
@@ -47,8 +49,8 @@ class PanenModel {
   double get nilaiEstimasi => tonAktual * hargaPerTon;
 
   factory PanenModel.fromJson(Map<String, dynamic> json) {
-    final luasHa = (json['luasHa'] as num?)?.toDouble() ?? 14.0;
-    final usiaPohon = (json['usiaPohon'] as num?)?.toInt() ?? (json['usiaTahun'] as num?)?.toInt() ?? 8;
+    final luasHa = (json['luasHa'] as num?)?.toDouble() ?? 0.0;
+    final usiaPohon = (json['usiaPohon'] as num?)?.toInt() ?? (json['usiaTahun'] as num?)?.toInt() ?? 0;
     return PanenModel(
       id: json['id'],
       lahanId: json['lahanId'],
@@ -65,7 +67,7 @@ class PanenModel {
       tanggal: json['tanggal'],
       statusPanen: json['statusPanen'],
       persenKurang: (json['persenKurang'] as num?)?.toDouble() ?? 0,
-      hargaPerTon: (json['hargaPerTon'] as num?)?.toDouble() ?? 2400000,
+      hargaPerTon: (json['hargaPerTon'] as num?)?.toDouble() ?? AppConstants.defaultHargaTbs,
       analisa: json['analisa'] != null
           ? AnalisaResult.fromJson(json['analisa'])
           : null,
@@ -87,6 +89,8 @@ class AnalisaResult {
   final List<AnalisaPenyebab> penyebab;
   final String? ringkasan;
   final String? prioritasTindakan;
+  /// True when analisa was produced by Claude AI; false for local rule-based fallback.
+  final bool isAiGenerated;
 
   AnalisaResult({
     this.id,
@@ -94,18 +98,45 @@ class AnalisaResult {
     required this.penyebab,
     this.ringkasan,
     this.prioritasTindakan,
+    this.isAiGenerated = true,
   });
 
-  factory AnalisaResult.fromJson(Map<String, dynamic> json) => AnalisaResult(
-    id: json['id'],
-    status: json['status'] ?? 'DONE',
-    penyebab: (json['penyebab'] as List?)
-            ?.map((p) => AnalisaPenyebab.fromJson(p))
-            .toList() ??
-        [],
-    ringkasan: json['ringkasan'],
-    prioritasTindakan: json['prioritasTindakan'],
-  );
+  factory AnalisaResult.fromJson(Map<String, dynamic> json) {
+    // Detect source from backend field (preferred) or aiResponseRaw content.
+    bool aiGenerated = true;
+    final rawSource = json['analisaSource'] as String?;
+    if (rawSource != null) {
+      aiGenerated = rawSource.toUpperCase() == 'AI';
+    } else {
+      final raw = json['aiResponseRaw'] as String?;
+      if (raw != null && raw.contains('"source":"local_advisor"')) {
+        aiGenerated = false;
+      } else if (raw == null) {
+        // No raw field at all — check heuristic: if ALL penyebab have no
+        // estimasiDampak filled, it's likely rule-based.
+        final penyebabList = (json['penyebab'] as List?) ?? [];
+        if (penyebabList.isNotEmpty) {
+          final allEmpty = penyebabList.every((p) {
+            final ed = (p as Map<String, dynamic>)['estimasiDampak'];
+            return ed == null || (ed as String).isEmpty;
+          });
+          aiGenerated = !allEmpty;
+        }
+      }
+    }
+
+    return AnalisaResult(
+      id: json['id'],
+      status: json['status'] ?? 'DONE',
+      penyebab: (json['penyebab'] as List?)
+              ?.map((p) => AnalisaPenyebab.fromJson(p))
+              .toList() ??
+          [],
+      ringkasan: json['ringkasan'],
+      prioritasTindakan: json['prioritasTindakan'],
+      isAiGenerated: aiGenerated,
+    );
+  }
 }
 
 class AnalisaPenyebab {

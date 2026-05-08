@@ -33,13 +33,24 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
     _loadData();
   }
 
+  bool _errorIsNetwork = false;
+
   Future<void> _loadData() async {
     setState(() { _loading = true; _error = null; });
     try {
       final data = await _api.getProfitLoss(widget.lahan.id, year: _selectedYear);
       setState(() { _data = data; _loading = false; });
-    } catch (_) {
-      setState(() { _error = 'Gagal memuat data'; _loading = false; });
+    } catch (e) {
+      final msg = e.toString();
+      final isNetwork = msg.contains('network') ||
+          msg.contains('Connection') ||
+          msg.contains('SocketException') ||
+          msg.contains('TimeoutException');
+      setState(() {
+        _errorIsNetwork = isNetwork;
+        _error = isNetwork ? 'Periksa koneksi internet' : 'Gagal memuat data. Coba lagi.';
+        _loading = false;
+      });
     }
   }
 
@@ -54,7 +65,7 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
 
   List<int> get _years {
     final y = DateTime.now().year;
-    return [y - 3, y - 2, y - 1, y, y + 1, y + 2];
+    return [y, y - 1, y - 2];
   }
 
   @override
@@ -120,7 +131,7 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.wifi_off_rounded,
+              Icon(_errorIsNetwork ? Icons.wifi_off_rounded : Icons.error_outline_rounded,
                   size: 48, color: AppColors.textLight),
               const SizedBox(height: 16),
               Text(_error!,

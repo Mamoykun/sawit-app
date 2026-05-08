@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_constants.dart';
 import '../models/panen_model.dart';
 import '../models/lahan_model.dart';
 import '../models/diagnosa_model.dart';
@@ -30,7 +31,7 @@ class InputPanenScreen extends StatefulWidget {
 class _InputPanenScreenState extends State<InputPanenScreen> {
   late final PanenRepository _panenRepo;
   final _tonController = TextEditingController();
-  final _hargaController = TextEditingController(text: '2400000');
+  final _hargaController = TextEditingController(text: '${AppConstants.defaultHargaTbs.toInt()}');
   bool _loading = false;
   String _loadingLabel = '';
 
@@ -60,7 +61,7 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
   Future<void> _fetchExistingMonthTotal() async {
     try {
       // Fetch recent records — limit covers multi-panen scenario adequately.
-      final list = await _panenRepo.getByLahan(widget.lahan.id, limit: 20);
+      final list = await _panenRepo.getByLahan(widget.lahan.id, limit: 60);
       final month = _selectedDate.month;
       final year = _selectedDate.year;
       final sameMonth = list
@@ -197,7 +198,7 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
       return;
     }
 
-    final harga = double.tryParse(_hargaController.text) ?? 2400000;
+    final harga = double.tryParse(_hargaController.text) ?? AppConstants.defaultHargaTbs;
 
     setState(() {
       _loading = true;
@@ -329,7 +330,7 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
                   const SizedBox(height: 16),
                   AppInputField(
                     label: 'Harga Per Ton',
-                    hint: '2400000',
+                    hint: '${AppConstants.defaultHargaTbs.toInt()}',
                     suffix: 'Rp',
                     controller: _hargaController,
                     keyboardType: TextInputType.number,

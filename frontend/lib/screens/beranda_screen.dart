@@ -85,8 +85,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(
-          child: CircularProgressIndicator(color: AppColors.primary));
+      return _BerandaSkeleton(lahan: widget.lahan);
     }
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -1244,4 +1243,63 @@ class _FirstVisitHint extends StatelessWidget {
       ),
     );
   }
+}
+
+class _BerandaSkeleton extends StatelessWidget {
+  final LahanModel lahan;
+  const _BerandaSkeleton({required this.lahan});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(width: 180, height: 14, decoration: _shimmerDeco()),
+          const SizedBox(height: 4),
+          Container(width: 220, height: 28, decoration: _shimmerDeco()),
+          const SizedBox(height: 16),
+          // Hero card placeholder
+          Container(
+            height: 240,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.primary, AppColors.primary2, Color(0xFF1A5C40)],
+              ),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: const Center(
+              child: SizedBox(
+                width: 28, height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white70),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Grid placeholder
+          GridView.count(
+            crossAxisCount: 4,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            children: List.generate(8, (i) => Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
+              ),
+            )),
+          ),
+        ],
+      ),
+    );
+  }
+
+  BoxDecoration _shimmerDeco() => BoxDecoration(
+    color: AppColors.border,
+    borderRadius: BorderRadius.circular(6),
+  );
 }

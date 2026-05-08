@@ -5,6 +5,7 @@ import '../database/app_database.dart';
 import '../models/panen_model.dart';
 import '../services/analisa_service.dart';
 import '../services/api_service.dart';
+import '../theme/app_constants.dart';
 
 int _tempIdCounter = 0;
 
@@ -72,7 +73,7 @@ class PanenRepository {
     required int bulanAngka,
     required int tanggal,
     required double tonAktual,
-    double hargaPerTon = 2400000,
+    double hargaPerTon = AppConstants.defaultHargaTbs,
     String? catatan,
   }) async {
     final tempId = -(DateTime.now().millisecondsSinceEpoch * 1000 + (++_tempIdCounter % 1000));
@@ -155,7 +156,7 @@ class PanenRepository {
     required int bulanAngka,
     required int tanggal,
     required double tonAktual,
-    double hargaPerTon = 2400000,
+    double hargaPerTon = AppConstants.defaultHargaTbs,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
 

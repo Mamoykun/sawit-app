@@ -51,8 +51,12 @@ class _ProductionAnalyticsScreenState
   }
 
   List<int> get _years {
-    final y = DateTime.now().year;
-    return [y - 3, y - 2, y - 1, y, y + 1, y + 2];
+    final now = DateTime.now().year;
+    final dataYears = (_allData ?? [])
+        .map((p) => p.tahun ?? now)
+        .toSet();
+    dataYears.add(now);
+    return dataYears.toList()..sort((a, b) => b.compareTo(a));
   }
 
   /// Recompute status from aggregated tonAktual vs targetMin.

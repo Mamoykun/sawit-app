@@ -8,6 +8,7 @@ import '../database/app_database.dart';
 import '../models/biaya_model.dart';
 import '../models/panen_model.dart';
 import '../services/api_service.dart';
+import '../theme/app_constants.dart';
 
 class SyncService with WidgetsBindingObserver {
   final AppDatabase _db;
@@ -104,7 +105,7 @@ class SyncService with WidgetsBindingObserver {
           bulanAngka: p['bulanAngka'] as int,
           tanggal: p['tanggal'] as int,
           tonAktual: (p['tonAktual'] as num).toDouble(),
-          hargaPerTon: (p['hargaPerTon'] as num?)?.toDouble() ?? 2400000,
+          hargaPerTon: (p['hargaPerTon'] as num?)?.toDouble() ?? AppConstants.defaultHargaTbs,
           catatan: p['catatan'] as String?,
         );
         // Replace temp record with server record
@@ -124,7 +125,7 @@ class SyncService with WidgetsBindingObserver {
           bulanAngka: p['bulanAngka'] as int,
           tanggal: p['tanggal'] as int,
           tonAktual: (p['tonAktual'] as num).toDouble(),
-          hargaPerTon: (p['hargaPerTon'] as num?)?.toDouble() ?? 2400000,
+          hargaPerTon: (p['hargaPerTon'] as num?)?.toDouble() ?? AppConstants.defaultHargaTbs,
         );
         await (_db.update(_db.panens)
             ..where((t) => t.id.equals(item.localId))).write(

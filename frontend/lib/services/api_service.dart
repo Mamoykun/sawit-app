@@ -9,8 +9,10 @@ import '../models/biaya_model.dart';
 import '../models/diagnosa_model.dart';
 import '../models/lahan_photo_model.dart';
 import '../models/payment_model.dart';
+import '../models/ai_usage_stats_model.dart';
 import '../main.dart';
 import '../screens/login_screen.dart';
+import '../theme/app_constants.dart';
 
 class ApiService {
   static String get baseUrl =>
@@ -252,7 +254,7 @@ class ApiService {
     required int bulanAngka,
     required int tanggal,
     required double tonAktual,
-    double hargaPerTon = 2400000,
+    double hargaPerTon = AppConstants.defaultHargaTbs,
     String? catatan,
   }) async {
     final res = await _dio.post('/lahan/$lahanId/panen', data: {
@@ -277,7 +279,7 @@ class ApiService {
     required int bulanAngka,
     required int tanggal,
     required double tonAktual,
-    double hargaPerTon = 2400000,
+    double hargaPerTon = AppConstants.defaultHargaTbs,
   }) async {
     final res = await _dio.put('/lahan/$lahanId/panen/$panenId', data: {
       'bulan': bulan,
@@ -346,6 +348,15 @@ class ApiService {
   Future<Map<String, dynamic>> exportMyData() async {
     final res = await _dio.get('/users/me/export');
     return res.data['data'] as Map<String, dynamic>;
+  }
+
+  /// AI quota/cost usage for the current billing period.
+  Future<AiUsageStatsModel> getAiUsageStats() async {
+    final res = await _dio.get('/users/me/ai-usage');
+    // Backend may wrap in { data: {...} } or return the object directly.
+    final raw = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : <String, dynamic>{};
+    final payload = (raw['data'] as Map<String, dynamic>?) ?? raw;
+    return AiUsageStatsModel.fromJson(payload);
   }
 
   // ─── BIAYA OPERASIONAL ────────────────────────────────────────────────────
