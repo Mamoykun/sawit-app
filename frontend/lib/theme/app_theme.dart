@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// ─── COLORS ───────────────────────────────────────────────────────────────────
+// ─── COLORS (Light values — these ARE the light theme defaults) ───────────────
 class AppColors {
   static const primary     = Color(0xFF1B4332);
   static const primary2    = Color(0xFF2D6A4F);
@@ -34,6 +34,58 @@ class AppColors {
   static const textMid     = Color(0xFF2E3828);
   static const textMuted   = Color(0xFF72776A);
   static const textLight   = Color(0xFFADB5A0);
+
+  // ── Context-aware helpers (use when BuildContext is available) ──────────────
+  static bool _dark(BuildContext c) =>
+      Theme.of(c).brightness == Brightness.dark;
+
+  static Color bgOf(BuildContext c) => _dark(c) ? _Dark.bg : bg;
+  static Color surfaceOf(BuildContext c) => _dark(c) ? _Dark.surface : surface;
+  static Color surfaceAltOf(BuildContext c) =>
+      _dark(c) ? _Dark.surfaceAlt : surfaceAlt;
+  static Color borderOf(BuildContext c) => _dark(c) ? _Dark.border : border;
+  static Color borderDarkOf(BuildContext c) =>
+      _dark(c) ? _Dark.borderStrong : borderDark;
+  static Color textOf(BuildContext c) => _dark(c) ? _Dark.text : text;
+  static Color textMidOf(BuildContext c) => _dark(c) ? _Dark.textMid : textMid;
+  static Color textMutedOf(BuildContext c) =>
+      _dark(c) ? _Dark.textMuted : textMuted;
+  static Color textLightOf(BuildContext c) =>
+      _dark(c) ? _Dark.textLight : textLight;
+  static Color primaryTintOf(BuildContext c) =>
+      _dark(c) ? _Dark.primaryTint : primaryTint;
+  static Color goldTintOf(BuildContext c) =>
+      _dark(c) ? _Dark.goldTint : goldTint;
+  static Color dangerTintOf(BuildContext c) =>
+      _dark(c) ? _Dark.dangerTint : dangerTint;
+  static Color warnTintOf(BuildContext c) =>
+      _dark(c) ? _Dark.warnTint : warnTint;
+  static Color successTintOf(BuildContext c) =>
+      _dark(c) ? _Dark.successTint : successTint;
+  static Color accentTintOf(BuildContext c) =>
+      _dark(c) ? _Dark.accentTint : accentTint;
+}
+
+// ─── DARK PALETTE ─────────────────────────────────────────────────────────────
+class _Dark {
+  static const bg          = Color(0xFF0F1411);
+  static const surface     = Color(0xFF1B221E);
+  static const surfaceAlt  = Color(0xFF252D29);
+  static const border      = Color(0xFF2C342F);
+  static const borderStrong = Color(0xFF3A443E);
+
+  static const text        = Color(0xFFE5E9E7);
+  static const textMid     = Color(0xFFB8C2BC);
+  static const textMuted   = Color(0xFF8A938F);
+  static const textLight   = Color(0xFF6F7872);
+
+  // Tints — muted for dark backgrounds
+  static const primaryTint = Color(0xFF1A2820);
+  static const goldTint    = Color(0xFF2A2618);
+  static const dangerTint  = Color(0xFF2A1818);
+  static const warnTint    = Color(0xFF2A2418);
+  static const successTint = Color(0xFF182418);
+  static const accentTint  = Color(0xFF2A1C14);
 }
 
 // ─── SPACING (4/8 dp grid system) ─────────────────────────────────────────────
@@ -159,14 +211,23 @@ class AppTextStyles {
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
 class AppTheme {
-  static ThemeData get theme => ThemeData(
+  /// Legacy accessor — returns light theme. Use light()/dark() going forward.
+  static ThemeData get theme => light();
+
+  static ThemeData light() => ThemeData(
         useMaterial3: true,
+        brightness: Brightness.light,
         scaffoldBackgroundColor: AppColors.bg,
         colorScheme: const ColorScheme.light(
           primary: AppColors.primary,
           surface: AppColors.surface,
           secondary: AppColors.gold,
+          onSurface: AppColors.text,
+          surfaceContainerHighest: AppColors.surfaceAlt,
+          outline: AppColors.border,
         ),
+        cardColor: AppColors.surface,
+        dividerColor: AppColors.border,
         textTheme: GoogleFonts.interTextTheme(),
         appBarTheme: AppBarTheme(
           backgroundColor: AppColors.primary,
@@ -186,7 +247,46 @@ class AppTheme {
             ),
           ),
         ),
-        // Subtle ripple feedback
+        splashFactory: InkRipple.splashFactory,
+      );
+
+  static ThemeData dark() => ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: _Dark.bg,
+        colorScheme: ColorScheme.dark(
+          primary: AppColors.primary3,
+          surface: _Dark.surface,
+          secondary: AppColors.gold,
+          onSurface: _Dark.text,
+          onSurfaceVariant: _Dark.textMid,
+          surfaceContainerHighest: _Dark.surfaceAlt,
+          outline: _Dark.border,
+          outlineVariant: _Dark.borderStrong,
+        ),
+        cardColor: _Dark.surface,
+        dividerColor: _Dark.border,
+        textTheme: GoogleFonts.interTextTheme(
+          ThemeData(brightness: Brightness.dark).textTheme,
+        ),
+        appBarTheme: AppBarTheme(
+          backgroundColor: _Dark.surface,
+          foregroundColor: _Dark.text,
+          elevation: 0,
+          centerTitle: false,
+          titleSpacing: 16,
+          titleTextStyle: GoogleFonts.inter(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: _Dark.text,
+            letterSpacing: -0.2,
+          ),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(
+              bottom: Radius.circular(0),
+            ),
+          ),
+        ),
         splashFactory: InkRipple.splashFactory,
       );
 }

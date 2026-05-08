@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
+import '../services/theme_service.dart';
+import '../models/ai_usage_stats_model.dart';
 import '../widgets/common_widgets.dart';
 import 'legal_screen.dart';
 import 'login_screen.dart';
@@ -16,6 +18,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _loading = true;
+  AiUsageStatsModel? _aiStats;
 
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
@@ -53,6 +56,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _nameCtrl.text = data['name'] ?? '';
       _emailCtrl.text = data['email'] ?? '';
       _phoneCtrl.text = data['phone'] ?? '';
+    } catch (_) {}
+    // Load AI quota — fail silently so profile still shows on network error.
+    try {
+      final stats = await ApiService().getAiUsageStats();
+      if (mounted) setState(() => _aiStats = stats);
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
   }
@@ -412,6 +420,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           builder: (_) => const SubscriptionScreen()),
                     ),
                   ),
+                  const SizedBox(height: 20),
+
+                  // ── AI Quota Card ────────────────────────────────────────
+                  if (_aiStats != null)
+                    _AiQuotaCard(
+                      stats: _aiStats!,
+                      onUpgrade: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SubscriptionScreen()),
+                      ),
+                    )
+                  else
+                    _AiQuotaCard(
+                      stats: null,
+                      onUpgrade: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SubscriptionScreen()),
+                      ),
+                    ),
+                  const SizedBox(height: 28),
+
+                  // ── Tampilan ────────────────────────────────────────────
+                  const _SectionHeader(title: 'Tampilan'),
+                  const SizedBox(height: 14),
+                  _ThemePickerCard(),
                   const SizedBox(height: 28),
 
                   // ── Legal & Privacy ─────────────────────────────────────
@@ -563,6 +598,335 @@ class _ProfileField extends StatelessWidget {
     ],
   );
 }
+
+// ─── AI Quota Card ────────────────────────────────────────────────────────────
+
+class _AiQuotaCard extends StatelessWidget {
+  final AiUsageStatsModel? stats;
+  final VoidCallback onUpgrade;
+
+  const _AiQuotaCard({required this.stats, required this.onUpgrade});
+
+  Color _barColor(int pct) {
+    if (pct >= 100) return AppColors.danger;
+    if (pct >= 75) return AppColors.warn;
+    if (pct >= 50) return AppColors.gold;
+    return AppColors.primary;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Skeleton while loading
+    if (stats == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(Radii.lg),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.primaryTint,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.memory_rounded,
+                  size: 18, color: AppColors.primary3),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text('Kuota AI Bulan Ini',
+                  style: AppTextStyles.body(14,
+                      color: AppColors.textMid, weight: FontWeight.w600)),
+            ),
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: AppColors.primary3),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final s = stats!;
+    final isPro = s.isPro;
+    final pct = s.percentUsed.clamp(0, 100);
+    final barColor = _barColor(pct);
+    final capCount = s.capCount;
+
+    // Paket badge color
+    final paketColor = isPro
+        ? AppColors.gold
+        : s.paket == 'PETANI'
+            ? AppColors.primary3
+            : AppColors.textMuted;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: s.isExhausted
+            ? AppColors.dangerTint
+            : isPro
+                ? AppColors.primaryTint
+                : AppColors.surface,
+        borderRadius: BorderRadius.circular(Radii.lg),
+        border: Border.all(
+          color: s.isExhausted
+              ? AppColors.danger.withOpacity(0.3)
+              : AppColors.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row
+          Row(
+            children: [
+              Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: s.isExhausted
+                      ? AppColors.danger.withOpacity(0.12)
+                      : AppColors.primaryTint,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.memory_rounded,
+                    size: 18,
+                    color: s.isExhausted
+                        ? AppColors.danger
+                        : AppColors.primary3),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text('Kuota AI Bulan Ini',
+                    style: AppTextStyles.body(14,
+                        color: AppColors.text, weight: FontWeight.w700)),
+              ),
+              // Paket badge
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: paketColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(Radii.pill),
+                  border: Border.all(color: paketColor.withOpacity(0.3)),
+                ),
+                child: Text(
+                  s.paket,
+                  style: AppTextStyles.body(10,
+                      color: paketColor, weight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          // PRO → unlimited display
+          if (isPro) ...[
+            Row(
+              children: [
+                const Icon(Icons.all_inclusive_rounded,
+                    size: 18, color: AppColors.gold),
+                const SizedBox(width: 8),
+                Text(
+                  'Unlimited — PRO Plan',
+                  style: AppTextStyles.body(13,
+                      color: AppColors.gold, weight: FontWeight.w600),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${s.callCount} analisa diproses bulan ini',
+              style: AppTextStyles.body(12, color: AppColors.textMuted),
+            ),
+          ] else ...[
+            // Progress bar
+            ClipRRect(
+              borderRadius: BorderRadius.circular(Radii.pill),
+              child: LinearProgressIndicator(
+                value: pct / 100.0,
+                minHeight: 8,
+                backgroundColor: AppColors.border,
+                valueColor: AlwaysStoppedAnimation<Color>(barColor),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Terpakai: ${s.callCount} dari $capCount analisa',
+                  style: AppTextStyles.body(12, color: AppColors.textMid),
+                ),
+                Text(
+                  '$pct%',
+                  style: AppTextStyles.body(12,
+                      color: barColor, weight: FontWeight.w700),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Reset otomatis tanggal 1 bulan depan',
+              style: AppTextStyles.body(11, color: AppColors.textMuted),
+            ),
+
+            // Exhausted badge
+            if (s.isExhausted) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.danger.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(Radii.md),
+                  border: Border.all(
+                      color: AppColors.danger.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_rounded,
+                        size: 14, color: AppColors.danger),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Kuota Habis — Analisa berikutnya pakai Rule-Based',
+                        style: AppTextStyles.body(11,
+                            color: AppColors.danger,
+                            weight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            // Upgrade CTA for non-PRO
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: onUpgrade,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.gold,
+                  borderRadius: BorderRadius.circular(Radii.md),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.workspace_premium_rounded,
+                        size: 16, color: Colors.white),
+                    const SizedBox(width: 6),
+                    Text(
+                      s.paket == 'PETANI'
+                          ? 'Upgrade ke PRO untuk Unlimited →'
+                          : 'Upgrade Paket untuk lebih banyak analisa →',
+                      style: AppTextStyles.body(12,
+                          color: Colors.white, weight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Theme Picker Card ────────────────────────────────────────────────────────
+
+class _ThemePickerCard extends StatefulWidget {
+  @override
+  State<_ThemePickerCard> createState() => _ThemePickerCardState();
+}
+
+class _ThemePickerCardState extends State<_ThemePickerCard> {
+  static const _options = [
+    (mode: AppThemeMode.system, label: 'Mengikuti Sistem', icon: Icons.brightness_auto_rounded),
+    (mode: AppThemeMode.light,  label: 'Mode Terang',      icon: Icons.light_mode_rounded),
+    (mode: AppThemeMode.dark,   label: 'Mode Gelap',       icon: Icons.dark_mode_rounded),
+  ];
+
+  @override
+  Widget build(BuildContext context) => Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceOf(context),
+          borderRadius: BorderRadius.circular(Radii.lg),
+          border: Border.all(color: AppColors.borderOf(context)),
+        ),
+        child: Column(
+          children: List.generate(_options.length, (i) {
+            final opt = _options[i];
+            final selected = themeService.mode == opt.mode;
+            final isLast = i == _options.length - 1;
+            return InkWell(
+              onTap: () => setState(() => themeService.setMode(opt.mode)),
+              borderRadius: BorderRadius.vertical(
+                top: i == 0 ? const Radius.circular(Radii.lg) : Radius.zero,
+                bottom: isLast ? const Radius.circular(Radii.lg) : Radius.zero,
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                    child: Row(
+                      children: [
+                        Icon(opt.icon,
+                            size: 22,
+                            color: selected
+                                ? AppColors.primary3
+                                : AppColors.textMutedOf(context)),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            opt.label,
+                            style: AppTextStyles.body(
+                              15,
+                              color: selected
+                                  ? AppColors.textOf(context)
+                                  : AppColors.textMutedOf(context),
+                              weight: selected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                        if (selected)
+                          const Icon(Icons.check_circle_rounded,
+                              size: 20, color: AppColors.primary3)
+                        else
+                          Icon(Icons.radio_button_unchecked_rounded,
+                              size: 20,
+                              color: AppColors.textLightOf(context)),
+                      ],
+                    ),
+                  ),
+                  if (!isLast)
+                    Divider(
+                      height: 1,
+                      indent: 52,
+                      color: AppColors.borderOf(context),
+                    ),
+                ],
+              ),
+            );
+          }),
+        ),
+      );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _ProfileLink extends StatelessWidget {
   final IconData icon;
