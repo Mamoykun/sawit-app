@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title th:text="'User: ' + ${user.name} + ' - Admin Sawitku'">User Detail</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <div th:insert="~{admin/_header :: header}"></div>
+
+  <div class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-12 gap-6">
+    <aside class="col-span-12 md:col-span-3">
+      <div th:insert="~{admin/_nav :: nav}"></div>
+    </aside>
+
+    <main class="col-span-12 md:col-span-9 space-y-6">
+      <div class="flex items-center gap-3">
+        <a href="/admin/users" class="text-emerald-600 hover:underline text-sm">Users</a>
+        <span class="text-slate-400">/</span>
+        <h2 class="text-xl font-bold text-slate-800" th:text="${user.name}">Nama User</h2>
+      </div>
+
+      <!-- User Info Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div>
+            <p class="text-xs text-slate-500 uppercase font-medium mb-1">ID</p>
+            <p class="font-semibold text-slate-800" th:text="${user.id}">1</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 uppercase font-medium mb-1">Nama</p>
+            <p class="font-semibold text-slate-800" th:text="${user.name}">Nama</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 uppercase font-medium mb-1">Email</p>
+            <p class="text-slate-700 break-all" th:text="${user.email}">email</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 uppercase font-medium mb-1">Phone</p>
+            <p class="text-slate-700" th:text="${user.phone ?: '-'}">-</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 uppercase font-medium mb-1">Paket</p>
+            <span th:if="${user.subscription != null}"
+                  th:classappend="${user.subscription.paket.name() == 'PRO'} ? 'bg-purple-100 text-purple-700' :
+                                  (${user.subscription.paket.name() == 'PETANI'} ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600')"
+                  class="text-sm font-semibold px-3 py-1 rounded-full"
+                  th:text="${user.subscription.paket}">GRATIS</span>
+            <span th:if="${user.subscription == null}" class="text-slate-400 text-sm">-</span>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 uppercase font-medium mb-1">Status Sub</p>
+            <p class="text-slate-700" th:text="${user.subscription?.status ?: '-'}">-</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 uppercase font-medium mb-1">Terdaftar</p>
+            <p class="text-slate-700"
+               th:text="${user.createdAt != null} ? ${#temporals.format(user.createdAt, 'dd MMM yyyy HH:mm')} : '-'">-</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 uppercase font-medium mb-1">Expired Sub</p>
+            <p class="text-slate-700"
+               th:text="${user.subscription?.expiredAt != null} ? ${#temporals.format(user.subscription.expiredAt, 'dd MMM yyyy')} : '-'">-</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+          <p class="text-xs text-slate-500 uppercase font-medium">Lahan</p>
+          <p class="text-3xl font-bold text-slate-800 mt-1" th:text="${lahanCount}">0</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+          <p class="text-xs text-slate-500 uppercase font-medium">Total Panen</p>
+          <p class="text-3xl font-bold text-emerald-600 mt-1" th:text="${panenCount}">0</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+          <p class="text-xs text-slate-500 uppercase font-medium">AI Calls Bulan Ini</p>
+          <p class="text-3xl font-bold text-blue-600 mt-1" th:text="${aiCalls}">0</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+          <p class="text-xs text-slate-500 uppercase font-medium">AI Cost Bulan Ini</p>
+          <p class="text-2xl font-bold text-amber-600 mt-1">
+            <span th:text="${#numbers.formatDecimal(aiCostCents / 100.0, 1, 2)}">0.00</span>
+            <span class="text-sm text-slate-400">¢</span>
+          </p>
+          <p class="text-xs text-slate-400 mt-1" th:text="${aiPeriod}">2026-05</p>
+        </div>
+      </div>
+
+      <!-- Audit Timeline -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-100">
+        <div class="px-6 py-4 border-b border-slate-100">
+          <h3 class="font-semibold text-slate-800">Aktivitas Terkini (20 terakhir)</h3>
+        </div>
+        <div class="divide-y divide-slate-50">
+          <div th:each="log : ${auditLogs}"
+               class="px-6 py-3 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3 flex-1 min-w-0">
+              <span th:classappend="${log.success} ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'"
+                    class="text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
+                    th:text="${log.action}">ACTION</span>
+              <span class="text-xs text-slate-400 truncate"
+                    th:text="${log.entityType != null} ? (${log.entityType} + ' #' + ${log.entityId}) : ''"></span>
+            </div>
+            <span class="text-xs text-slate-400 whitespace-nowrap"
+                  th:text="${#temporals.format(log.occurredAt, 'dd MMM HH:mm', new java.util.Locale('id'))}">-</span>
+          </div>
+          <div th:if="${#lists.isEmpty(auditLogs)}"
+               class="px-6 py-8 text-center text-slate-400 text-sm">
+            Belum ada aktivitas
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Agent - Admin Sawitku</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <div th:insert="~{admin/_header :: header}"></div>
+
+  <div class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-12 gap-6">
+    <aside class="col-span-12 md:col-span-3">
+      <div th:insert="~{admin/_nav :: nav}"></div>
+    </aside>
+
+    <main class="col-span-12 md:col-span-9 space-y-6">
+      <div>
+        <h2 class="text-xl font-bold text-slate-800 mb-1">Admin Agent</h2>
+        <p class="text-slate-500 text-sm">Konfigurasi Telegram bot dan agen admin otomatis</p>
+      </div>
+
+      <!-- Phase 2 placeholder -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-10 text-center">
+        <div class="text-5xl mb-4">🤖</div>
+        <h3 class="text-lg font-semibold text-slate-700 mb-2">Phase 2 Coming Soon</h3>
+        <p class="text-slate-500 text-sm max-w-md mx-auto">
+          Konfigurasi Telegram bot untuk notifikasi admin, alert otomatis,
+          dan perintah admin via chat akan tersedia di Phase 2.
+        </p>
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+          <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+            <p class="text-sm font-semibold text-slate-700 mb-1">Telegram Bot</p>
+            <p class="text-xs text-slate-400">Alert AI cost, error rate, user signup</p>
+          </div>
+          <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+            <p class="text-sm font-semibold text-slate-700 mb-1">Auto Reports</p>
+            <p class="text-xs text-slate-400">Daily/weekly digest ke Telegram</p>
+          </div>
+          <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+            <p class="text-sm font-semibold text-slate-700 mb-1">Admin Commands</p>
+            <p class="text-xs text-slate-400">/stats /users /cost via Telegram</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

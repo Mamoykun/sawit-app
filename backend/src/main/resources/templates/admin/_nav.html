@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="nav">
+  <nav class="bg-white rounded-lg shadow-sm p-4 space-y-1">
+    <th:block th:each="item : ${navItems}">
+      <a th:href="${item.path}"
+         th:classappend="${currentPath == item.path} ? ' bg-emerald-100 text-emerald-700 font-semibold' : ' text-slate-600 hover:bg-slate-100'"
+         class="block px-3 py-2 rounded text-sm transition-colors">
+        <span th:text="${item.label}">Page</span>
+      </a>
+    </th:block>
+  </nav>
+</th:block>
+</body>
+</html>

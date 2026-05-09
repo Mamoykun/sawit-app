@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overview - Admin Sawitku</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <div th:insert="~{admin/_header :: header}"></div>
+
+  <div class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-12 gap-6">
+    <aside class="col-span-12 md:col-span-3">
+      <div th:insert="~{admin/_nav :: nav}"></div>
+    </aside>
+
+    <main class="col-span-12 md:col-span-9 space-y-6">
+      <div>
+        <h2 class="text-xl font-bold text-slate-800 mb-1">Overview</h2>
+        <p class="text-slate-500 text-sm" th:text="'Periode: ' + ${aiPeriod}">Periode: 2026-05</p>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100">
+          <p class="text-xs text-slate-500 uppercase tracking-wide font-medium">Total Users</p>
+          <p class="text-3xl font-bold text-slate-800 mt-1" th:text="${totalUsers}">0</p>
+          <div class="flex gap-2 mt-2 text-xs text-slate-500">
+            <span class="bg-slate-100 px-2 py-0.5 rounded-full" th:text="'G: ' + ${gratisCount}">G: 0</span>
+            <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full" th:text="'P: ' + ${petaniCount}">P: 0</span>
+            <span class="bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full" th:text="'PRO: ' + ${proCount}">PRO: 0</span>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100">
+          <p class="text-xs text-slate-500 uppercase tracking-wide font-medium">Aktif Hari Ini</p>
+          <p class="text-3xl font-bold text-emerald-600 mt-1" th:text="${activeToday}">0</p>
+          <p class="text-xs text-slate-400 mt-2">Unique users dari audit log</p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100">
+          <p class="text-xs text-slate-500 uppercase tracking-wide font-medium">AI Cost Bulan Ini</p>
+          <p class="text-3xl font-bold text-amber-600 mt-1">
+            <span th:text="${#numbers.formatDecimal(aiCostCents / 100.0, 1, 2)}">0.00</span>
+            <span class="text-lg font-normal text-slate-400">¢</span>
+          </p>
+          <p class="text-xs text-slate-400 mt-2">USD cents</p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100">
+          <p class="text-xs text-slate-500 uppercase tracking-wide font-medium">Subscription</p>
+          <p class="text-3xl font-bold text-slate-700 mt-1" th:text="${petaniCount + proCount}">0</p>
+          <p class="text-xs text-slate-400 mt-2">Petani + PRO aktif</p>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-100">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h3 class="font-semibold text-slate-800">Aktivitas Terbaru</h3>
+          <a href="/admin/audit" class="text-xs text-emerald-600 hover:underline">Lihat semua</a>
+        </div>
+        <div class="divide-y divide-slate-50">
+          <div th:each="log : ${recentLogs}"
+               class="px-6 py-3 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <span th:classappend="${log.success} ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'"
+                    class="text-xs font-medium px-2 py-0.5 rounded-full"
+                    th:text="${log.action}">ACTION</span>
+              <span class="text-sm text-slate-600" th:text="${log.userEmail ?: 'system'}">user@email.com</span>
+            </div>
+            <span class="text-xs text-slate-400"
+                  th:text="${#temporals.format(log.occurredAt, 'dd MMM HH:mm', new java.util.Locale('id'))}">
+              01 Jan 12:00
+            </span>
+          </div>
+          <div th:if="${#lists.isEmpty(recentLogs)}"
+               class="px-6 py-8 text-center text-slate-400 text-sm">
+            Belum ada aktivitas
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick links -->
+      <div class="grid grid-cols-3 gap-3">
+        <a href="/admin/users"
+           class="bg-white rounded-lg p-4 border border-slate-100 shadow-sm hover:shadow transition-shadow text-center">
+          <p class="text-2xl mb-1">👥</p>
+          <p class="text-sm font-medium text-slate-700">Kelola Users</p>
+        </a>
+        <a href="/admin/ai-cost"
+           class="bg-white rounded-lg p-4 border border-slate-100 shadow-sm hover:shadow transition-shadow text-center">
+          <p class="text-2xl mb-1">💰</p>
+          <p class="text-sm font-medium text-slate-700">AI Cost Detail</p>
+        </a>
+        <a href="/admin/audit"
+           class="bg-white rounded-lg p-4 border border-slate-100 shadow-sm hover:shadow transition-shadow text-center">
+          <p class="text-2xl mb-1">📋</p>
+          <p class="text-sm font-medium text-slate-700">Audit Log</p>
+        </a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

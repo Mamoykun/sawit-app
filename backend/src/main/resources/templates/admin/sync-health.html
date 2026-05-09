@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sync Health - Admin Sawitku</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <div th:insert="~{admin/_header :: header}"></div>
+
+  <div class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-12 gap-6">
+    <aside class="col-span-12 md:col-span-3">
+      <div th:insert="~{admin/_nav :: nav}"></div>
+    </aside>
+
+    <main class="col-span-12 md:col-span-9 space-y-6">
+      <div>
+        <h2 class="text-xl font-bold text-slate-800 mb-1">Sync Health</h2>
+        <p class="text-slate-500 text-sm">Status sinkronisasi server-side</p>
+      </div>
+
+      <!-- Info Banner -->
+      <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-3">
+        <span class="text-blue-500 text-lg flex-shrink-0">i</span>
+        <div>
+          <p class="text-sm font-medium text-blue-800">Catatan Arsitektur</p>
+          <p class="text-sm text-blue-700 mt-1">
+            Sawitku menggunakan arsitektur offline-first. Sync queue ada di SQLite device pengguna (frontend Flutter).
+            Halaman ini menampilkan metrik server-side: aktivitas user, koneksi DB, dan error rate.
+          </p>
+        </div>
+      </div>
+
+      <!-- Server Metrics -->
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-xs text-slate-500 uppercase font-medium">Server Status</p>
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+          </div>
+          <p class="text-lg font-bold text-emerald-600">Online</p>
+          <p class="text-xs text-slate-400 mt-1">Spring Boot running</p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+          <p class="text-xs text-slate-500 uppercase font-medium mb-2">Total Users</p>
+          <p class="text-3xl font-bold text-slate-800" th:text="${totalUsers}">0</p>
+          <p class="text-xs text-slate-400 mt-1">Registered accounts</p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+          <p class="text-xs text-slate-500 uppercase font-medium mb-2">Aktif Hari Ini</p>
+          <p class="text-3xl font-bold text-blue-600" th:text="${activeToday}">0</p>
+          <p class="text-xs text-slate-400 mt-1">Unique users dari audit log</p>
+        </div>
+      </div>
+
+      <!-- Infrastructure Status -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-100">
+        <div class="px-6 py-4 border-b border-slate-100">
+          <h3 class="font-semibold text-slate-800">Infrastructure</h3>
+        </div>
+        <div class="divide-y divide-slate-50">
+          <div class="px-6 py-4 flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-slate-700">PostgreSQL</p>
+              <p class="text-xs text-slate-400 mt-0.5">Primary database (Hikari pool: max 10)</p>
+            </div>
+            <span class="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+              <span class="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
+              Connected
+            </span>
+          </div>
+          <div class="px-6 py-4 flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-slate-700">Redis</p>
+              <p class="text-xs text-slate-400 mt-0.5">Cache + rate limiting</p>
+            </div>
+            <span class="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+              <span class="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
+              Connected
+            </span>
+          </div>
+          <div class="px-6 py-4 flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-slate-700">Claude AI API</p>
+              <p class="text-xs text-slate-400 mt-0.5">Haiku + Sonnet models</p>
+            </div>
+            <span class="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+              <span class="inline-block w-2 h-2 rounded-full bg-slate-300"></span>
+              On-demand
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actuator Note -->
+      <div class="bg-slate-50 rounded-xl border border-slate-200 p-5">
+        <p class="text-sm font-medium text-slate-700 mb-2">Health Endpoint Detail</p>
+        <p class="text-sm text-slate-500 mb-3">
+          Untuk detail health check (DB pool, disk space, Redis ping), gunakan Spring Boot Actuator:
+        </p>
+        <a href="/actuator/health" target="_blank"
+           class="inline-flex items-center gap-2 text-sm text-emerald-600 hover:underline font-mono bg-white px-3 py-1.5 rounded border border-emerald-200">
+          GET /actuator/health
+        </a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
