@@ -7,3 +7,14 @@ backend/.mvn/wrapper/maven-wrapper.jar
 *.jar
 !backend/mvnw
 !backend/mvnw.cmd
+
+# Claude Code agent artifacts
+.claude/
+.claude-flow/
+.ruvector/
+ruvector.db
+*.rvf
+
+# Frontend tool artifacts
+frontend/.claude-flow/
+frontend/ruvector.db
