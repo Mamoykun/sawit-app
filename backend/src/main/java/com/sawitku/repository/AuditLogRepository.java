@@ -24,4 +24,9 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     default long countDistinctUsersToday() {
         return countDistinctUsersSince(Instant.now().truncatedTo(ChronoUnit.DAYS));
     }
+
+    @Query("SELECT COUNT(a) FROM AuditLog a WHERE a.action = :action AND a.occurredAt > :since")
+    long countByActionAndOccurredAtAfter(@Param("action") String action, @Param("since") Instant since);
+
+    List<AuditLog> findTop50ByOrderByOccurredAtDesc();
 }

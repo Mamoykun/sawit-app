@@ -17,13 +17,17 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Rate-limits /api/auth/login and /api/auth/register to 5 requests per minute per IP.
- * Uses an in-memory ConcurrentHashMap of Bucket4j buckets — one bucket per client IP.
+ * Rate-limits endpoints per IP:
+ *   - /api/auth/* endpoints: 5 requests per minute
+ *   - /api/admin/agent/* endpoints: 60 requests per minute
+ *
+ * Uses in-memory ConcurrentHashMap of Bucket4j buckets — one bucket per (ip, bucketType) key.
  */
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private static final int MAX_REQUESTS_PER_MINUTE = 5;
+    private static final int AUTH_MAX_PER_MINUTE = 5;
+    private static final int AGENT_MAX_PER_MINUTE = 60;
     private static final long REFILL_SECONDS = 60L;
 
     private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
@@ -32,10 +36,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return !path.equals("/api/auth/login")
-            && !path.equals("/api/auth/register")
-            && !path.equals("/api/auth/forgot-password")
-            && !path.equals("/api/auth/reset-password");
+        boolean isAuthPath = path.equals("/api/auth/login")
+            || path.equals("/api/auth/register")
+            || path.equals("/api/auth/forgot-password")
+            || path.equals("/api/auth/reset-password");
+        boolean isAgentPath = path.startsWith("/api/admin/agent/");
+        return !isAuthPath && !isAgentPath;
     }
 
     @Override
@@ -43,7 +49,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         String ip = resolveClientIp(request);
-        Bucket bucket = buckets.computeIfAbsent(ip, this::newBucket);
+        boolean isAgentPath = request.getRequestURI().startsWith("/api/admin/agent/");
+
+        String bucketKey = isAgentPath ? "agent:" + ip : "auth:" + ip;
+        int capacity = isAgentPath ? AGENT_MAX_PER_MINUTE : AUTH_MAX_PER_MINUTE;
+        Bucket bucket = buckets.computeIfAbsent(bucketKey, k -> newBucket(capacity));
 
         if (bucket.tryConsume(1)) {
             filterChain.doFilter(request, response);
@@ -66,10 +76,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return request.getRemoteAddr();
     }
 
-    private Bucket newBucket(String ip) {
+    private Bucket newBucket(int capacity) {
         Bandwidth limit = Bandwidth.builder()
-            .capacity(MAX_REQUESTS_PER_MINUTE)
-            .refillGreedy(MAX_REQUESTS_PER_MINUTE, Duration.ofSeconds(REFILL_SECONDS))
+            .capacity(capacity)
+            .refillGreedy(capacity, Duration.ofSeconds(REFILL_SECONDS))
             .build();
         return Bucket.builder().addLimit(limit).build();
     }

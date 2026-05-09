@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,4 +38,6 @@ public interface BiayaRepository extends JpaRepository<Biaya, Long> {
          + "WHERE b.lahan.id = :lahanId AND b.tahun = :tahun "
          + "GROUP BY b.kategori")
     List<Object[]> sumByKategori(@Param("lahanId") Long lahanId, @Param("tahun") Integer tahun);
+
+    long countByCreatedAtAfter(LocalDateTime after);
 }

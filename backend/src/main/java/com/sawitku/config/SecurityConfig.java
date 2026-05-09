@@ -1,5 +1,6 @@
 package com.sawitku.config;
 
+import com.sawitku.security.AdminAgentKeyFilter;
 import com.sawitku.security.JwtAuthFilter;
 import com.sawitku.security.RateLimitFilter;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ import java.util.List;
 @Order(2)
 public class SecurityConfig {
 
+    private final AdminAgentKeyFilter adminAgentKeyFilter;
     private final JwtAuthFilter jwtAuthFilter;
     private final RateLimitFilter rateLimitFilter;
     private final UserDetailsService userDetailsService;
@@ -53,9 +55,12 @@ public class SecurityConfig {
                 .requestMatchers("/photos/**").permitAll()
                 .requestMatchers("/actuator/health/**", "/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/actuator/**").authenticated()
+                // Agent API: auth is handled by AdminAgentKeyFilter before this chain
+                .requestMatchers("/api/admin/agent/**").hasRole("ADMIN_AGENT")
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())
+            .addFilterBefore(adminAgentKeyFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
