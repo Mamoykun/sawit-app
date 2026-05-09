@@ -361,6 +361,22 @@ class ApiService {
     return AiUsageStatsModel.fromJson(payload);
   }
 
+  // ─── FEEDBACK ─────────────────────────────────────────────────────────────
+
+  Future<void> submitFeedback({
+    required String type,
+    required String subject,
+    required String detail,
+    String? userEmail,
+  }) async {
+    await _dio.post('/feedback', data: {
+      'type': type,
+      'subject': subject,
+      'detail': detail,
+      if (userEmail != null) 'userEmail': userEmail,
+    });
+  }
+
   // ─── BIAYA OPERASIONAL ────────────────────────────────────────────────────
 
   Future<List<BiayaModel>> getBiaya(int lahanId, {int? tahun}) async {

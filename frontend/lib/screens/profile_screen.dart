@@ -4,6 +4,10 @@ import '../services/api_service.dart';
 import '../services/theme_service.dart';
 import '../models/ai_usage_stats_model.dart';
 import '../widgets/common_widgets.dart';
+import 'help_screen.dart';
+import 'feedback_screen.dart';
+import 'changelog_screen.dart';
+import 'about_screen.dart';
 import 'legal_screen.dart';
 import 'login_screen.dart';
 import 'subscription_screen.dart';
@@ -210,8 +214,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         MaterialPageRoute(builder: (_) => const LoginScreen()),
         (_) => false,
       );
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('Akun berhasil dihapus permanen'),
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Akun berhasil dihapus permanen'),
         backgroundColor: AppColors.primary,
         behavior: SnackBarBehavior.floating,
       ));
@@ -447,6 +451,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const _SectionHeader(title: 'Tampilan'),
                   const SizedBox(height: 14),
                   _ThemePickerCard(),
+                  const SizedBox(height: 28),
+
+                  // ── Bantuan & Info ──────────────────────────────────────
+                  const _SectionHeader(title: 'Bantuan & Info'),
+                  const SizedBox(height: 14),
+                  _ProfileLink(
+                    icon: Icons.help_outline_rounded,
+                    label: 'Bantuan & FAQ',
+                    color: AppColors.primary3,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const HelpScreen()),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _ProfileLink(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    label: 'Kirim Feedback',
+                    color: AppColors.primary3,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const FeedbackScreen()),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _ProfileLink(
+                    icon: Icons.new_releases_outlined,
+                    label: 'Apa yang Baru',
+                    color: AppColors.primary3,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ChangelogScreen()),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _ProfileLink(
+                    icon: Icons.info_outline_rounded,
+                    label: 'Tentang Aplikasi',
+                    color: AppColors.primary3,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AboutScreen()),
+                    ),
+                  ),
                   const SizedBox(height: 28),
 
                   // ── Legal & Privacy ─────────────────────────────────────
