@@ -1,0 +1,38 @@
+# Docker Compose option untuk run OpenClaw + Sawitku skill di VPS.
+#
+# Pakai ini supaya tidak perlu install Node manual + setup systemd.
+#
+# Usage:
+#   1. Copy .env.example ke .env, isi values
+#   2. docker compose up -d
+#   3. Cek log: docker compose logs -f openclaw
+
+services:
+  openclaw:
+    image: ghcr.io/openclaw/openclaw:latest  # adjust kalau image official lain
+    container_name: sawitku-admin-agent
+    restart: unless-stopped
+    environment:
+      # Anthropic
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      # Telegram
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      # Sawitku Backend
+      SAWITKU_API_BASE: ${SAWITKU_API_BASE}
+      SAWITKU_AGENT_KEY: ${SAWITKU_AGENT_KEY}
+      # OpenClaw config
+      OPENCLAW_LOG_LEVEL: ${OPENCLAW_LOG_LEVEL:-info}
+      TZ: Asia/Jakarta
+    volumes:
+      # Mount skill dari host directory
+      - ./openclaw-skill/sawitku-admin:/opt/openclaw/skills/sawitku-admin:ro
+      # Persistent data (memory, cache)
+      - openclaw-data:/var/lib/openclaw
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.exit(0)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  openclaw-data:

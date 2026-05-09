@@ -1,0 +1,12 @@
+# Local env file dengan secrets
+.env
+
+# Skill local config
+openclaw-skill/sawitku-admin/config.json
+
+# Node modules (kalau ada local install)
+node_modules/
+
+# OpenClaw runtime data
+data/
+*.log

@@ -1,0 +1,13 @@
+{
+  "name": "sawitku-admin-skill",
+  "version": "1.0.0",
+  "description": "OpenClaw skill untuk Sawitku admin agent — daily report, alerts, chat queries via Telegram",
+  "type": "module",
+  "main": "api-client.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": ["openclaw", "sawitku", "telegram", "admin", "agriculture"],
+  "author": "Sawitku Team",
+  "license": "MIT"
+}

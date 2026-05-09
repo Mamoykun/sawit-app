@@ -1,0 +1,37 @@
+{
+  "_comment": "Copy ke config.json dan isi sesuai setup kamu. Jangan commit config.json (sudah di .gitignore).",
+  "telegram": {
+    "_comment_chat_ids": "Daftar chat ID owner yang bisa interact dengan bot. Cara dapat chat ID: kirim /start ke @userinfobot atau kirim pesan ke bot lalu cek getUpdates.",
+    "admin_chat_ids": [
+      "123456789"
+    ]
+  },
+  "schedules": {
+    "daily_report": {
+      "enabled": true,
+      "time": "08:00",
+      "timezone": "Asia/Jakarta"
+    },
+    "weekly_report": {
+      "enabled": true,
+      "day": "monday",
+      "time": "08:00",
+      "timezone": "Asia/Jakarta"
+    },
+    "alert_check": {
+      "enabled": true,
+      "interval_minutes": 15
+    }
+  },
+  "alert_thresholds": {
+    "_comment": "Override default thresholds dari backend kalau perlu",
+    "ai_cost_warning_dollars": 10,
+    "ai_cost_critical_dollars": 50,
+    "failed_login_15min": 20,
+    "min_panen_per_week": 1
+  },
+  "chat_budget": {
+    "_comment": "Cap free-text Claude queries per bulan per chat ID untuk mencegah cost spike",
+    "max_queries_per_month": 50
+  }
+}
