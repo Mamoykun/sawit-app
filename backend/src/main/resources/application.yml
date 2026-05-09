@@ -7,13 +7,25 @@ app:
   admin-emails: ${ADMIN_EMAILS:}
   agent-api-key: ${ADMIN_AGENT_API_KEY:}  # Secret key for OpenClaw external agent
   email:
-    provider: log    # log | smtp
-    from: noreply@sawitku.id
-    reset-url-template: "https://app.sawitku.id/reset-password?token={token}"
+    provider: ${EMAIL_PROVIDER:log}  # 'log' = dev (default) | 'smtp' = production
+    from: ${EMAIL_FROM:noreply@sawitku.id}
+    reset-url-template: ${RESET_URL_TEMPLATE:"https://app.sawitku.id/reset-password?token={token}"}
+  feedback-email: ${FEEDBACK_EMAIL:admin@sawitku.id}
 
 spring:
   profiles:
     active: dev
+  mail:
+    host: ${SMTP_HOST:smtp.gmail.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
   mvc:
     throw-exception-if-no-handler-found: true
   web:
