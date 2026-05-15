@@ -91,7 +91,7 @@ SELECT
   (ARRAY['NORMAL','NORMAL','NORMAL','RENDAH','TINGGI'])[(sl.id + m + y) % 5 + 1],
   0,
   ROUND((2000000 + random() * 800000)::NUMERIC, 2),
-  make_timestamp(y, m, 1 + ((sl.id + m + y) % 27), 8, 0, 0)
+  make_timestamp(y, m, (1 + ((sl.id + m + y) % 27))::INT, 8, 0, 0)
 FROM _seed_lahan sl
 CROSS JOIN generate_series(2019, 2024) AS y
 CROSS JOIN generate_series(1, 12) AS m
@@ -120,7 +120,7 @@ SELECT
     END
   )::NUMERIC, 2),
   'Seed data otomatis',
-  make_timestamp(y, m, 5, 9, 0, 0)
+  make_timestamp(y, m, 5, 9, 0, 0::DOUBLE PRECISION)
 FROM _seed_lahan sl
 CROSS JOIN generate_series(2019, 2024) AS y
 CROSS JOIN generate_series(1, 12) AS m
