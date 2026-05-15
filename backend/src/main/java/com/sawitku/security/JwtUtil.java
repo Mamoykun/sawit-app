@@ -23,8 +23,13 @@ public class JwtUtil {
     private long refreshExpiration;
 
     private SecretKey getKey() {
-        byte[] bytes = Decoders.BASE64.decode(secret);
-        return Keys.hmacShaKeyFor(bytes);
+        try {
+            byte[] bytes = Decoders.BASE64.decode(secret);
+            if (bytes.length >= 32) return Keys.hmacShaKeyFor(bytes);
+        } catch (Exception ignored) {
+            // Secret is not valid Base64 — fall back to raw bytes (dev convenience)
+        }
+        return Keys.hmacShaKeyFor(secret.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     /** Short-lived access token (15 min). Use this for API authorization. */

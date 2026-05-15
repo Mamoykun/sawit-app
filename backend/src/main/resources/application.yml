@@ -62,7 +62,9 @@ spring:
       port: ${REDIS_PORT:6379}
 
 jwt:
-  secret: ${JWT_SECRET}
+  # DEV default: plain string (min 32 chars) — JwtUtil handles non-Base64 gracefully
+  # PRODUCTION: set JWT_SECRET to output of: openssl rand -base64 32
+  secret: ${JWT_SECRET:sawitku-dev-only-secret-not-for-production-use}
   access-expiration: 900000       # 15 minutes
   refresh-expiration: 2592000000  # 30 days
 
