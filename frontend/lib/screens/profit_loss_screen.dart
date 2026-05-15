@@ -423,12 +423,14 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
 
   Widget _buildProfitBarChart(List monthly) {
     final groups = <BarChartGroupData>[];
-    double maxAbs = 1.0;
+    double maxPositive = 1.0;
+    double maxNegative = 1.0;
 
     for (int i = 0; i < monthly.length; i++) {
       final m = monthly[i] as Map<String, dynamic>;
       final profit = (m['profit'] as num?)?.toDouble() ?? 0.0;
-      if (profit.abs() > maxAbs) maxAbs = profit.abs();
+      if (profit > maxPositive) maxPositive = profit;
+      if (profit < 0 && profit.abs() > maxNegative) maxNegative = profit.abs();
       groups.add(BarChartGroupData(
         x: i,
         barRods: [
@@ -445,17 +447,19 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
       ));
     }
 
-    final chartMax = maxAbs * 1.3;
+    // Skala positif dan negatif dihitung terpisah — tidak simetris
+    final chartMax = maxPositive * 1.3;
+    final chartMin = -(maxNegative * 1.3);
 
     return BarChart(
       BarChartData(
-        minY: -chartMax,
+        minY: chartMin,
         maxY: chartMax,
         barGroups: groups,
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: chartMax / 3,
+          horizontalInterval: (chartMax - chartMin) / 4,
           getDrawingHorizontalLine: (v) => FlLine(
             color: v == 0
                 ? AppColors.borderDark
@@ -470,15 +474,18 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 48,
-              interval: chartMax / 3,
-              getTitlesWidget: (v, _) => Text(
-                v >= 1e6
-                    ? '${(v / 1e6).toStringAsFixed(0)}jt'
-                    : v >= 1e3
-                        ? '${(v / 1e3).toStringAsFixed(0)}k'
-                        : v.toStringAsFixed(0),
-                style: AppTextStyles.body(9, color: AppColors.textLight),
-              ),
+              interval: (chartMax - chartMin) / 4,
+              getTitlesWidget: (v, _) {
+                final abs = v.abs();
+                final prefix = v < 0 ? '-' : '';
+                final label = abs >= 1e6
+                    ? '$prefix${(abs / 1e6).toStringAsFixed(0)}jt'
+                    : abs >= 1e3
+                        ? '$prefix${(abs / 1e3).toStringAsFixed(0)}k'
+                        : v.toStringAsFixed(0);
+                return Text(label,
+                    style: AppTextStyles.body(9, color: AppColors.textLight));
+              },
             ),
           ),
           rightTitles:
@@ -488,12 +495,15 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 22,
-              getTitlesWidget: (v, _) {
+              reservedSize: 28,
+              getTitlesWidget: (v, meta) {
                 final idx = v.toInt();
                 if (idx < 0 || idx > 11) return const SizedBox.shrink();
-                return Text(_kMonthAbbr[idx],
-                    style: AppTextStyles.body(9, color: AppColors.textMuted));
+                return Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(_kMonthAbbr[idx],
+                      style: AppTextStyles.body(8, color: AppColors.textMuted)),
+                );
               },
             ),
           ),
