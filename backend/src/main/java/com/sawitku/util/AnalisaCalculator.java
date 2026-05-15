@@ -31,6 +31,7 @@ public class AnalisaCalculator {
     }
 
     public static BigDecimal hitungPersenKurang(BigDecimal tonAktual, BigDecimal targetMid) {
+        if (tonAktual.compareTo(BigDecimal.ZERO) < 0) return BigDecimal.ZERO;
         if (targetMid.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
         BigDecimal diff = targetMid.subtract(tonAktual);
         if (diff.compareTo(BigDecimal.ZERO) <= 0) return BigDecimal.ZERO;

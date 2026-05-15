@@ -71,13 +71,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _saveProfile() async {
     final name = _nameCtrl.text.trim();
+    final phone = _phoneCtrl.text.trim();
+
     if (name.length < 2) {
       _showSnack('Nama minimal 2 karakter', isError: true);
       return;
     }
+    if (phone.isNotEmpty) {
+      final phoneRegex = RegExp(r'^(08|\+62)[0-9]{8,12}$');
+      if (!phoneRegex.hasMatch(phone)) {
+        _showSnack('Format nomor HP tidak valid (contoh: 081234567890)', isError: true);
+        return;
+      }
+    }
     setState(() => _profileSaving = true);
     try {
-      await ApiService().updateProfile(name: name, phone: _phoneCtrl.text.trim());
+      await ApiService().updateProfile(name: name, phone: phone);
       _showSnack('Profil berhasil diperbarui');
     } catch (e) {
       _showSnack(_parseError(e), isError: true);

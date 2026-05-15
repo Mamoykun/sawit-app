@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -81,9 +82,21 @@ public class LahanService {
         catch (Exception ignored) {}
     }
 
-    public List<LahanResponse> getMyLahan(Long userId) {
-        return lahanRepository.findByUserIdAndIsActiveTrue(userId)
-            .stream().map(this::toResponse).toList();
+    public List<LahanResponse> getMyLahan(Long userId, int limit, int offset) {
+        List<Lahan> lahans = lahanRepository.findByUserIdAndIsActiveTrue(userId);
+        if (lahans.isEmpty()) {
+            return List.of();
+        }
+
+        // Apply pagination after fetching all lahans
+        List<Lahan> paginatedLahans = lahans.stream().skip(offset).limit(limit).toList();
+
+        List<Long> lahanIds = paginatedLahans.stream().map(Lahan::getId).collect(Collectors.toList());
+        List<com.sawitku.entity.Panen> latestPanens = panenRepository.findLatestByLahanIds(lahanIds);
+        Map<Long, com.sawitku.entity.Panen> latestPanenMap = latestPanens.stream()
+            .collect(Collectors.toMap(p -> p.getLahan().getId(), p -> p));
+
+        return paginatedLahans.stream().map(lahan -> toResponse(lahan, latestPanenMap)).toList();
     }
 
     public LahanResponse getLahanById(Long userId, Long lahanId) {
@@ -93,17 +106,33 @@ public class LahanService {
     }
 
     private LahanResponse toResponse(Lahan lahan) {
+        return toResponse(lahan, Map.of());
+    }
+
+    private LahanResponse toResponse(Lahan lahan, Map<Long, com.sawitku.entity.Panen> latestPanenMap) {
         int usia = lahan.getTahunTanam() != null
             ? LocalDate.now().getYear() - lahan.getTahunTanam()
             : lahan.getUsiaPohon();
         var target = AnalisaCalculator.getTarget(lahan.getLuasHa().doubleValue(), usia);
-        LahanResponse.PanenSummary panenSummary = panenRepository
-            .findFirstByLahanIdOrderByTahunDescBulanAngkaDesc(lahan.getId())
-            .map(p -> LahanResponse.PanenSummary.builder()
-                .id(p.getId()).bulan(p.getBulan()).tahun(p.getTahun())
-                .tonAktual(p.getTonAktual()).targetMid(p.getTargetMid())
-                .statusPanen(p.getStatusPanen().name()).persenKurang(p.getPersenKurang()).build())
-            .orElse(null);
+
+        com.sawitku.entity.Panen latestPanen = latestPanenMap.get(lahan.getId());
+        LahanResponse.PanenSummary panenSummary = null;
+
+        if (latestPanen != null) {
+            panenSummary = LahanResponse.PanenSummary.builder()
+                .id(latestPanen.getId()).bulan(latestPanen.getBulan()).tahun(latestPanen.getTahun())
+                .tonAktual(latestPanen.getTonAktual()).targetMid(latestPanen.getTargetMid())
+                .statusPanen(latestPanen.getStatusPanen().name()).persenKurang(latestPanen.getPersenKurang()).build();
+        } else if (latestPanenMap.isEmpty()) {
+            // Map is empty, query single panen for backward compatibility
+            panenSummary = panenRepository
+                .findFirstByLahanIdOrderByTahunDescBulanAngkaDesc(lahan.getId())
+                .map(p -> LahanResponse.PanenSummary.builder()
+                    .id(p.getId()).bulan(p.getBulan()).tahun(p.getTahun())
+                    .tonAktual(p.getTonAktual()).targetMid(p.getTargetMid())
+                    .statusPanen(p.getStatusPanen().name()).persenKurang(p.getPersenKurang()).build())
+                .orElse(null);
+        }
 
         return LahanResponse.builder()
             .id(lahan.getId()).namaLahan(lahan.getNamaLahan())

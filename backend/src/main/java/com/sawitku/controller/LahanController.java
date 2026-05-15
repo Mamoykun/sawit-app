@@ -20,8 +20,10 @@ public class LahanController {
     private final LahanService lahanService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<LahanResponse>>> getMyLahan(@AuthenticationPrincipal User user) {
-        return ResponseUtil.ok(lahanService.getMyLahan(user.getId()));
+    public ResponseEntity<ApiResponse<List<LahanResponse>>> getMyLahan(@AuthenticationPrincipal User user,
+                                                                         @RequestParam(defaultValue = "50") int limit,
+                                                                         @RequestParam(defaultValue = "0") int offset) {
+        return ResponseUtil.ok(lahanService.getMyLahan(user.getId(), limit, offset));
     }
 
     @PostMapping

@@ -1,43 +1,105 @@
-services:
-  app:
-    build: ./backend
-    env_file: .env.prod
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    restart: unless-stopped
-    expose:
-      - "8080"
+# Production overlay — adds Caddy reverse proxy with auto-HTTPS, locks down ports.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Prerequisites:
+#   - Set SAWITKU_DOMAIN in .env (e.g. SAWITKU_DOMAIN=api.sawitku.id)
+#   - DNS A record pointing domain to this server's IP
+#   - Ports 80 + 443 open in firewall
 
+services:
   postgres:
-    image: postgres:16-alpine
-    env_file: .env.prod
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    ports: []  # NO host port exposure in prod — only accessible via internal network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
 
   redis:
-    image: redis:7-alpine
-    restart: unless-stopped
+    ports: []  # Internal only
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
 
-  nginx:
-    image: nginx:alpine
+  backend:
+    ports: []  # Caddy proxies to it — no direct host exposure
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: sawitku-caddy
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
+      - "443:443/udp"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      SAWITKU_DOMAIN: ${SAWITKU_DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-}
     depends_on:
-      - app
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - sawitku-net
+
+  # Automated PostgreSQL backup — dumps every day at 02:00, keeps 7 days
+  backup:
+    image: prodrigestivill/postgres-backup-local:16
+    container_name: sawitku-backup
     restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-sawitku}
+      POSTGRES_USER: ${POSTGRES_USER:-sawitku}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SCHEDULE: "0 2 * * *"
+      BACKUP_KEEP_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
+      HEALTHCHECK_PORT: 8080
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sawitku-net
+
+  # Uptime monitoring dashboard — accessible at :3001 (bind to 127.0.0.1 for safety)
+  uptime:
+    image: louislam/uptime-kuma:1
+    container_name: sawitku-uptime
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - uptime_data:/app/data
+    networks:
+      - sawitku-net
 
 volumes:
-  postgres_data:
+  caddy_data:
+    name: sawitku_caddy_data
+  caddy_config:
+    name: sawitku_caddy_config
+  uptime_data:
+    name: sawitku_uptime_data

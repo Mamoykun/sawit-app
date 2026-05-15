@@ -1,28 +1,49 @@
-version: '3.9'
+# Sawitku — One-command deployment
+# Usage:
+#   1. cp .env.example .env
+#   2. nano .env  (fill in JWT_SECRET, CLAUDE_API_KEY, etc.)
+#   3. docker compose up -d
+#   4. docker compose logs -f backend
+#
+# For production add SSL: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+name: sawitku
 
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: sawitku-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: sawitku_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-sawitku_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-sawitku_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - sawitku-net
 
   redis:
     image: redis:7-alpine
+    container_name: sawitku-redis
     restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -30,9 +51,19 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 320M
+    networks:
+      - sawitku-net
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: sawitku/backend:${SAWITKU_VERSION:-latest}
+    container_name: sawitku-backend
     restart: unless-stopped
     depends_on:
       postgres:
@@ -40,17 +71,60 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/sawitku_db
-      DB_USERNAME: postgres
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      # Database
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-sawitku_db}
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production-minimum-32-chars}
+      # JWT
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required, generate with: openssl rand -hex 32}
+      # Claude AI
       CLAUDE_API_KEY: ${CLAUDE_API_KEY:-}
+      CLAUDE_MODEL_HAIKU: ${CLAUDE_MODEL_HAIKU:-claude-haiku-4-5-20251001}
+      CLAUDE_MODEL_SONNET: ${CLAUDE_MODEL_SONNET:-claude-sonnet-4-20250514}
+      # Admin
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      ADMIN_AGENT_API_KEY: ${ADMIN_AGENT_API_KEY:-}
+      # Email
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-log}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@sawitku.id}
+      RESET_URL_TEMPLATE: ${RESET_URL_TEMPLATE:-https://app.sawitku.id/reset-password?token={token}}
+      # CORS
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
+      # Spring profile
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      # Timezone
+      TZ: Asia/Jakarta
     ports:
-      - "8080:8080"
+      - "${BACKEND_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/liveness"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 384M
+    networks:
+      - sawitku-net
 
 volumes:
   postgres_data:
+    name: sawitku_postgres_data
   redis_data:
+    name: sawitku_redis_data
+
+networks:
+  sawitku-net:
+    name: sawitku-net
+    driver: bridge

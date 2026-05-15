@@ -30,7 +30,7 @@ public class PanenController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<PanenResponse>>> getRiwayat(@AuthenticationPrincipal User user,
                                                                          @PathVariable Long lahanId,
-                                                                         @RequestParam(defaultValue = "7") int limit) {
+                                                                         @RequestParam(defaultValue = "50") int limit) {
         return ResponseUtil.ok(panenService.getRiwayat(user.getId(), lahanId, limit));
     }
 

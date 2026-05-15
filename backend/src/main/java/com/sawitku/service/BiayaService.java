@@ -46,14 +46,14 @@ public class BiayaService {
         return toResponse(biaya);
     }
 
-    public List<BiayaResponse> getBiayaByLahan(Long userId, Long lahanId, Integer tahun) {
+    public List<BiayaResponse> getBiayaByLahan(Long userId, Long lahanId, Integer tahun, int limit) {
         lahanRepository.findByIdAndUserId(lahanId, userId)
             .orElseThrow(() -> new ResourceNotFoundException("Lahan tidak ditemukan"));
 
         List<Biaya> list = (tahun != null)
             ? biayaRepository.findByLahanIdAndTahunOrderByBulanAngkaDescIdDesc(lahanId, tahun)
             : biayaRepository.findByLahanIdOrderByTahunDescBulanAngkaDescIdDesc(lahanId);
-        return list.stream().map(this::toResponse).toList();
+        return list.stream().limit(limit).map(this::toResponse).toList();
     }
 
     @Transactional

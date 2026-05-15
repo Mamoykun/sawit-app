@@ -25,6 +25,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final name = _nameCtrl.text.trim();
     final email = _emailCtrl.text.trim();
     final pass = _passCtrl.text;
+    final phone = _phoneCtrl.text.trim();
 
     if (name.isEmpty || email.isEmpty || pass.isEmpty) {
       setState(() => _error = 'Nama, email, dan password wajib diisi');
@@ -34,9 +35,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => _error = 'Format email tidak valid');
       return;
     }
-    if (pass.length < 6) {
-      setState(() => _error = 'Password minimal 6 karakter');
+    if (pass.length < 8) {
+      setState(() => _error = 'Password minimal 8 karakter');
       return;
+    }
+    if (phone.isNotEmpty) {
+      final phoneRegex = RegExp(r'^(08|\+62)[0-9]{8,12}$');
+      if (!phoneRegex.hasMatch(phone)) {
+        setState(() => _error = 'Format nomor HP tidak valid (contoh: 081234567890)');
+        return;
+      }
     }
 
     setState(() { _loading = true; _error = null; });
@@ -182,7 +190,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               obscureText: _obscure,
                               style: AppTextStyles.body(15),
                               decoration: InputDecoration(
-                                hintText: 'Minimal 6 karakter',
+                                hintText: 'Minimal 8 karakter',
                                 hintStyle: AppTextStyles.body(15, color: AppColors.textLight),
                                 border: InputBorder.none,
                                 contentPadding: const EdgeInsets.symmetric(

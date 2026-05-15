@@ -5,8 +5,10 @@ import com.sawitku.entity.LahanPhoto;
 import com.sawitku.entity.Lahan;
 import com.sawitku.exception.BusinessException;
 import com.sawitku.exception.ResourceNotFoundException;
+import com.sawitku.model.AuditAction;
 import com.sawitku.repository.LahanPhotoRepository;
 import com.sawitku.repository.LahanRepository;
+import com.sawitku.service.AuditService;
 import com.sawitku.util.ImageValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,6 +43,7 @@ public class LahanPhotoService {
 
     private final LahanPhotoRepository photoRepository;
     private final LahanRepository lahanRepository;
+    private final AuditService auditService;
 
     @Value("${upload.dir:uploads}")
     private String uploadDir;
@@ -96,6 +99,9 @@ public class LahanPhotoService {
                 .build();
 
         photoRepository.save(photo);
+        auditService.log(AuditAction.LAHAN_PHOTO_UPLOAD, userId, "LahanPhoto", photo.getId(),
+                Map.of("lahanId", lahanId, "filename", filename,
+                        "sizeBytes", bytes.length, "caption", caption != null ? caption : ""));
         return toResponse(photo);
     }
 
@@ -113,6 +119,8 @@ public class LahanPhotoService {
         LahanPhoto photo = photoRepository.findByIdAndLahanId(photoId, lahanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Foto tidak ditemukan"));
         photoRepository.delete(photo);
+        auditService.log(AuditAction.LAHAN_PHOTO_DELETE, userId, "LahanPhoto", photoId,
+                Map.of("lahanId", lahanId));
     }
 
     // ── Internal helpers ──────────────────────────────────────────────────────

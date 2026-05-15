@@ -33,8 +33,9 @@ public class BiayaController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<BiayaResponse>>> list(@AuthenticationPrincipal User user,
                                                                   @PathVariable Long lahanId,
-                                                                  @RequestParam(required = false) Integer tahun) {
-        return ResponseUtil.ok(biayaService.getBiayaByLahan(user.getId(), lahanId, tahun));
+                                                                  @RequestParam(required = false) Integer tahun,
+                                                                  @RequestParam(defaultValue = "50") int limit) {
+        return ResponseUtil.ok(biayaService.getBiayaByLahan(user.getId(), lahanId, tahun, limit));
     }
 
     @PutMapping("/{biayaId}")

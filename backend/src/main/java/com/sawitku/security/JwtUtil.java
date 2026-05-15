@@ -23,9 +23,7 @@ public class JwtUtil {
     private long refreshExpiration;
 
     private SecretKey getKey() {
-        byte[] bytes = Decoders.BASE64.decode(
-            java.util.Base64.getEncoder().encodeToString(secret.getBytes())
-        );
+        byte[] bytes = Decoders.BASE64.decode(secret);
         return Keys.hmacShaKeyFor(bytes);
     }
 

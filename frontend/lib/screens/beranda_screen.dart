@@ -932,7 +932,8 @@ class _MiniBarChart extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: grouped.map((m) {
-              final barH = ((m.tonAktual / maxVal) * chartHeight)
+              final clampedTon = m.tonAktual.clamp(0.0, double.infinity);
+              final barH = ((clampedTon / maxVal) * chartHeight)
                   .clamp(8.0, chartHeight);
               final abbr = m.bulan.length > 3 ? m.bulan.substring(0, 3) : m.bulan;
               final color = m.isNormal ? AppColors.primary3 : AppColors.danger;
@@ -970,7 +971,7 @@ class _MiniBarChart extends StatelessWidget {
                                   child: Padding(
                                     padding: const EdgeInsets.only(top: 4),
                                     child: Text(
-                                      m.tonAktual.toStringAsFixed(1),
+                                      clampedTon.toStringAsFixed(1),
                                       style: AppTextStyles.mono(
                                         barH > 32 ? 11 : 9,
                                         color: Colors.white,

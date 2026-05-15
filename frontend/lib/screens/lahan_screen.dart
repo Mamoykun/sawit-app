@@ -140,7 +140,7 @@ class _LahanScreenState extends State<LahanScreen> {
         const OfflineBanner(),
         Expanded(
           child: _loading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              ? const _LahanSkeleton()
               : _error != null
                   ? _ErrorView(message: _error!, onRetry: _loadData)
                   : _lahanList!.isEmpty
@@ -415,6 +415,29 @@ class LahanFormScreen extends StatefulWidget {
   State<LahanFormScreen> createState() => _LahanFormScreenState();
 }
 
+class _LahanSkeleton extends StatelessWidget {
+  const _LahanSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 4,
+      itemBuilder: (_, __) => Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Container(
+          height: 110,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _LahanFormScreenState extends State<LahanFormScreen> {
   late final LahanRepository _lahanRepo;
   final _namaCtrl = TextEditingController();
@@ -455,6 +478,7 @@ class _LahanFormScreenState extends State<LahanFormScreen> {
     final nama = _namaCtrl.text.trim();
     final luas = double.tryParse(_luasCtrl.text);
     final tahun = int.tryParse(_tahunCtrl.text);
+    final pohonText = _pohonCtrl.text.trim();
 
     if (nama.isEmpty) { setState(() => _error = 'Nama kebun wajib diisi'); return; }
     if (luas == null || luas <= 0) { setState(() => _error = 'Luas kebun tidak valid'); return; }
@@ -462,10 +486,17 @@ class _LahanFormScreenState extends State<LahanFormScreen> {
       setState(() => _error = 'Tahun tanam tidak valid (1980–$_currentYear)');
       return;
     }
+    if (pohonText.isNotEmpty) {
+      final pohon = int.tryParse(pohonText);
+      if (pohon == null || pohon < 1 || pohon > 100000) {
+        setState(() => _error = 'Jumlah pohon harus antara 1 – 100.000');
+        return;
+      }
+    }
 
     setState(() { _loading = true; _error = null; });
     try {
-      final jumlahPohon = int.tryParse(_pohonCtrl.text);
+      final jumlahPohon = int.tryParse(pohonText);
       final lokasi = _lokasiCtrl.text.trim();
 
       LahanModel result;

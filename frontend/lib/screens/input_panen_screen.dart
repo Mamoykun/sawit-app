@@ -198,7 +198,16 @@ class _InputPanenScreenState extends State<InputPanenScreen> {
       return;
     }
 
-    final harga = double.tryParse(_hargaController.text) ?? AppConstants.defaultHargaTbs;
+    final hargaText = _hargaController.text.trim();
+    double harga = AppConstants.defaultHargaTbs;
+    if (hargaText.isNotEmpty) {
+      final parsedHarga = double.tryParse(hargaText.replaceAll('.', '').replaceAll(',', '.'));
+      if (parsedHarga == null || parsedHarga <= 0) {
+        AppSnackbar.error(context, 'Harga TBS harus berupa angka positif');
+        return;
+      }
+      harga = parsedHarga;
+    }
 
     setState(() {
       _loading = true;

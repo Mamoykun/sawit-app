@@ -1,0 +1,44 @@
+# Sawitku — Caddyfile
+# Auto-HTTPS via Let's Encrypt. Requires DNS A record pointing to this server.
+# SAWITKU_DOMAIN env var is injected by docker-compose.prod.yml.
+
+{
+	# Enable admin API on localhost only (used by Docker healthcheck)
+	admin localhost:2019
+
+	# Email untuk notifikasi expiry sertifikat Let's Encrypt
+	email {$ACME_EMAIL:}
+}
+
+{$SAWITKU_DOMAIN} {
+	# Reverse proxy to Spring Boot backend
+	reverse_proxy backend:8080 {
+		# Pass real client IP to the app
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+
+		# Health check: Caddy marks backend unhealthy after 3 failures
+		health_uri /actuator/health/liveness
+		health_interval 30s
+		health_timeout 5s
+	}
+
+	# Compress responses
+	encode gzip
+
+	# Security headers
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Logs go to stdout → Docker picks them up
+	log {
+		output stdout
+		format json
+	}
+}

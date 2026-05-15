@@ -295,8 +295,8 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
 
     for (int i = 0; i < monthly.length; i++) {
       final m = monthly[i] as Map<String, dynamic>;
-      final rev = (m['revenue'] as num?)?.toDouble() ?? 0.0;
-      final exp = (m['expenses'] as num?)?.toDouble() ?? 0.0;
+      final rev = ((m['revenue'] as num?)?.toDouble() ?? 0.0).clamp(0.0, double.infinity);
+      final exp = ((m['expenses'] as num?)?.toDouble() ?? 0.0).clamp(0.0, double.infinity);
       revenueSpots.add(FlSpot(i.toDouble(), rev));
       expenseSpots.add(FlSpot(i.toDouble(), exp));
     }

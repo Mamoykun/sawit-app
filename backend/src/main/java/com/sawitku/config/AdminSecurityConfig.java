@@ -30,6 +30,7 @@ public class AdminSecurityConfig {
             )
             .sessionManagement(s -> s
                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                .sessionFixation(fixation -> fixation.migrateSession())
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/admin/login", "/admin/forbidden").permitAll()

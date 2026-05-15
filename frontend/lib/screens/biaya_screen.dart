@@ -243,7 +243,7 @@ class _BiayaScreenState extends State<BiayaScreen> {
           const OfflineBanner(),
           Expanded(
             child: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? const _BiayaSkeleton()
           : RefreshIndicator(
               onRefresh: _loadData,
               color: AppColors.primary,
@@ -711,6 +711,30 @@ class _BiayaSelectionBottomBar extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── SKELETON LOADER ─────────────────────────────────────────────────────────
+
+class _BiayaSkeleton extends StatelessWidget {
+  const _BiayaSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 4,
+      itemBuilder: (_, __) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Container(
+          height: 90,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );

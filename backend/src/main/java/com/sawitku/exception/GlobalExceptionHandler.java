@@ -29,18 +29,13 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
-        Map<String, String> fields = ex.getBindingResult().getFieldErrors().stream()
-            .collect(Collectors.toMap(
-                FieldError::getField,
-                fe -> fe.getDefaultMessage() != null ? fe.getDefaultMessage() : "invalid",
-                (a, b) -> a  // keep first message if same field appears twice
-            ));
-        Map<String, Object> body = Map.of(
-            "error", "Validation failed",
-            "fields", fields
-        );
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(body);
+    public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+            .map(fe -> fe.getField() + ": " + (fe.getDefaultMessage() != null ? fe.getDefaultMessage() : "invalid"))
+            .collect(Collectors.joining("; "));
+        return ResponseEntity.badRequest().body(ApiResponse.<Void>builder()
+            .success(false).message(message).code("VALIDATION_ERROR")
+            .timestamp(LocalDateTime.now()).build());
     }
 
     @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)

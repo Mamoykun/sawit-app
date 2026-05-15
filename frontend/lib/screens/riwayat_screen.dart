@@ -959,8 +959,9 @@ class _BarChart extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: grouped.map((m) {
+              final clampedTon = m.tonAktual.clamp(0.0, double.infinity);
               final barH =
-                  ((m.tonAktual / maxVal) * chartHeight).clamp(14.0, chartHeight);
+                  ((clampedTon / maxVal) * chartHeight).clamp(14.0, chartHeight);
               final abbr = m.bulan.length > 3 ? m.bulan.substring(0, 3) : m.bulan;
               final showYear =
                   multiYear && (m.bulanAngka == 1 || m == grouped.first);
@@ -1017,7 +1018,7 @@ class _BarChart extends StatelessWidget {
                                   child: Padding(
                                     padding: const EdgeInsets.only(top: 5),
                                     child: Text(
-                                      m.tonAktual.toStringAsFixed(1),
+                                      clampedTon.toStringAsFixed(1),
                                       style: AppTextStyles.mono(
                                         barH > 36 ? 11 : 9,
                                         color: Colors.white,

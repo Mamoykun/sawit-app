@@ -11,6 +11,6 @@ public class BiayaRequest {
     @NotNull @Min(2020) @Max(2100) public Integer tahun;
     @NotNull @Min(1) @Max(12) public Integer bulanAngka;
     @NotNull public KategoriBiaya kategori;
-    @NotNull @Positive public BigDecimal jumlah;
+    @NotNull @DecimalMin(value = "0", message = "Jumlah biaya tidak boleh negatif") public BigDecimal jumlah;
     public String keterangan;
 }

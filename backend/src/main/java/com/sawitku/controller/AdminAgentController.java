@@ -1,9 +1,15 @@
 package com.sawitku.controller;
 
+import com.sawitku.entity.PaymentStatus;
+import com.sawitku.model.AuditAction;
 import com.sawitku.repository.*;
 import com.sawitku.service.AiTelemetryService;
+import com.sawitku.service.AiUsageService;
+import com.sawitku.service.AuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.*;
@@ -22,11 +28,15 @@ import java.util.*;
 public class AdminAgentController {
 
     private final AiTelemetryService telemetryService;
+    private final AiUsageService aiUsageService;
     private final UserRepository userRepo;
     private final AuditLogRepository auditRepo;
     private final PanenRepository panenRepo;
     private final BiayaRepository biayaRepo;
     private final LahanRepository lahanRepo;
+    private final PaymentRepository paymentRepo;
+    private final AuditService auditService;
+    private final JdbcTemplate jdbcTemplate;
 
     /**
      * Daily/weekly/monthly summary metrics.
@@ -34,6 +44,8 @@ public class AdminAgentController {
      */
     @GetMapping("/summary")
     public Map<String, Object> summary(@RequestParam(defaultValue = "today") String period) {
+        auditService.log(AuditAction.ADMIN_AGENT_API_CALL, null, "AdminAgent", null,
+                Map.of("endpoint", "summary", "period", period));
         ZoneId jakarta = ZoneId.of("Asia/Jakarta");
         ZonedDateTime now = ZonedDateTime.now(jakarta);
         Instant since = switch (period) {
@@ -78,6 +90,8 @@ public class AdminAgentController {
      */
     @GetMapping("/alerts/active")
     public Map<String, Object> activeAlerts() {
+        auditService.log(AuditAction.ADMIN_AGENT_API_CALL, null, "AdminAgent", null,
+                Map.of("endpoint", "alerts/active"));
         List<Map<String, Object>> alerts = new ArrayList<>();
 
         // Alert: AI cost high (> $10 this month)
@@ -136,6 +150,8 @@ public class AdminAgentController {
      */
     @GetMapping("/audit/recent")
     public Map<String, Object> auditRecent(@RequestParam(defaultValue = "50") int limit) {
+        auditService.log(AuditAction.ADMIN_AGENT_API_CALL, null, "AdminAgent", null,
+                Map.of("endpoint", "audit/recent", "limit", limit));
         int capped = Math.min(limit, 200);
         try {
             var logs = auditRepo.findTop50ByOrderByOccurredAtDesc();
@@ -160,6 +176,8 @@ public class AdminAgentController {
      */
     @GetMapping("/users/stats")
     public Map<String, Object> usersStats() {
+        auditService.log(AuditAction.ADMIN_AGENT_API_CALL, null, "AdminAgent", null,
+                Map.of("endpoint", "users/stats"));
         ZoneId jakarta = ZoneId.of("Asia/Jakarta");
         LocalDateTime dayAgo  = LocalDateTime.now(jakarta).minusDays(1);
         LocalDateTime weekAgo = LocalDateTime.now(jakarta).minusDays(7);
@@ -185,6 +203,8 @@ public class AdminAgentController {
      */
     @GetMapping("/chat-context")
     public Map<String, Object> chatContext() {
+        auditService.log(AuditAction.ADMIN_AGENT_API_CALL, null, "AdminAgent", null,
+                Map.of("endpoint", "chat-context"));
         var summary   = summary("today");
         var alertsMap = activeAlerts();
         var users     = usersStats();
@@ -195,6 +215,169 @@ public class AdminAgentController {
             "users", users,
             "recentEvents", auditMap.get("logs")
         );
+    }
+
+    /**
+     * Payment summary: revenue, recent transactions, breakdown by status.
+     * GET /api/admin/agent/payments?limit=20
+     */
+    @GetMapping("/payments")
+    public Map<String, Object> payments(@RequestParam(defaultValue = "20") int limit) {
+        auditService.log(AuditAction.ADMIN_AGENT_API_CALL, null, "AdminAgent", null,
+                Map.of("endpoint", "payments"));
+        int capped = Math.min(limit, 100);
+        Map<String, Object> result = new LinkedHashMap<>();
+        try {
+            result.put("totalRevenue", paymentRepo.sumGrossAmountByStatus(PaymentStatus.PAID));
+            result.put("countByStatus", Map.of(
+                "PAID",    safeCount(() -> paymentRepo.countByStatus(PaymentStatus.PAID), "countPaid"),
+                "PENDING", safeCount(() -> paymentRepo.countByStatus(PaymentStatus.PENDING), "countPending"),
+                "FAILED",  safeCount(() -> paymentRepo.countByStatus(PaymentStatus.FAILED), "countFailed"),
+                "EXPIRED", safeCount(() -> paymentRepo.countByStatus(PaymentStatus.EXPIRED), "countExpired")
+            ));
+            var recent = paymentRepo.findAllByOrderByCreatedAtDesc(PageRequest.of(0, capped))
+                    .stream().map(p -> {
+                        Map<String, Object> m = new LinkedHashMap<>();
+                        m.put("id", p.getId());
+                        m.put("orderId", p.getOrderId());
+                        m.put("userEmail", p.getUser() != null ? p.getUser().getEmail() : null);
+                        m.put("targetPaket", p.getTargetPaket());
+                        m.put("grossAmount", p.getGrossAmount());
+                        m.put("status", p.getStatus());
+                        m.put("paymentMethod", p.getPaymentMethod());
+                        m.put("createdAt", p.getCreatedAt() != null ? p.getCreatedAt().toString() : null);
+                        m.put("paidAt", p.getPaidAt() != null ? p.getPaidAt().toString() : null);
+                        return m;
+                    }).toList();
+            result.put("recent", recent);
+        } catch (Exception e) {
+            log.warn("adminAgent: payments query failed: {}", e.getMessage());
+            result.put("error", "unavailable");
+        }
+        return result;
+    }
+
+    /**
+     * Filtered audit log query with pagination.
+     * GET /api/admin/agent/audit?action=AUTH_LOGIN_FAILED&from=2025-01-01T00:00:00Z&to=2025-12-31T23:59:59Z&success=false&limit=100&offset=0
+     */
+    @GetMapping("/audit")
+    public Map<String, Object> auditFiltered(
+            @RequestParam(required = false) String action,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false) Boolean success,
+            @RequestParam(defaultValue = "100") int limit,
+            @RequestParam(defaultValue = "0") int offset) {
+        auditService.log(AuditAction.ADMIN_AGENT_API_CALL, null, "AdminAgent", null,
+                Map.of("endpoint", "audit", "action", action != null ? action : "",
+                       "limit", limit, "offset", offset));
+        int capped = Math.min(limit, 500);
+        Instant fromInstant = from != null ? Instant.parse(from) : null;
+        Instant toInstant   = to   != null ? Instant.parse(to)   : null;
+        try {
+            var page = auditRepo.findFiltered(action, fromInstant, toInstant, success,
+                    PageRequest.of(offset / Math.max(capped, 1), capped));
+            var logs = page.getContent().stream().map(a -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("occurredAt", a.getOccurredAt().toString());
+                m.put("action", a.getAction());
+                m.put("userId", a.getUserId());
+                m.put("userEmail", a.getUserEmail() != null ? a.getUserEmail() : "");
+                m.put("entityType", a.getEntityType());
+                m.put("entityId", a.getEntityId());
+                m.put("ipAddress", a.getIpAddress());
+                m.put("success", Boolean.TRUE.equals(a.getSuccess()));
+                return m;
+            }).toList();
+            return Map.of("logs", logs, "total", page.getTotalElements(),
+                          "limit", capped, "offset", offset);
+        } catch (Exception e) {
+            log.warn("adminAgent: audit filtered query failed: {}", e.getMessage());
+            return Map.of("logs", List.of(), "error", "unavailable");
+        }
+    }
+
+    /**
+     * Per-user detail: profile, AI usage, audit history.
+     * GET /api/admin/agent/users/{id}
+     */
+    @GetMapping("/users/{id}")
+    public Map<String, Object> userDetail(@PathVariable Long id) {
+        auditService.log(AuditAction.ADMIN_AGENT_API_CALL, null, "AdminAgent", null,
+                Map.of("endpoint", "users/detail", "targetUserId", id));
+        Map<String, Object> result = new LinkedHashMap<>();
+        try {
+            var userOpt = userRepo.findById(id);
+            if (userOpt.isEmpty()) return Map.of("error", "User not found");
+            var u = userOpt.get();
+            result.put("id", u.getId());
+            result.put("name", u.getName());
+            result.put("email", u.getEmail());
+            result.put("createdAt", u.getCreatedAt() != null ? u.getCreatedAt().toString() : null);
+        } catch (Exception e) {
+            log.warn("adminAgent: user profile query failed for {}: {}", id, e.getMessage());
+        }
+        try {
+            var stats = aiUsageService.getStats(id);
+            result.put("aiUsage", Map.of(
+                "callCount", stats.callCount(),
+                "costCents", stats.costCents(),
+                "capCents", stats.capCents(),
+                "percentUsed", stats.percentUsed()
+            ));
+        } catch (Exception e) {
+            log.warn("adminAgent: ai usage query failed for {}: {}", id, e.getMessage());
+            result.put("aiUsage", Map.of("error", "unavailable"));
+        }
+        try {
+            result.put("lahanCount", safeCount(() -> lahanRepo.countByUserIdAndIsActiveTrue(id), "lahanCount"));
+            result.put("panenCount", safeCount(() -> panenRepo.countByUserId(id), "panenCount"));
+        } catch (Exception e) {
+            log.warn("adminAgent: entity counts failed for {}: {}", id, e.getMessage());
+        }
+        try {
+            var auditLogs = auditRepo.findByUserIdOrderByOccurredAtDesc(id, PageRequest.of(0, 20))
+                    .getContent().stream().map(a -> {
+                        Map<String, Object> m = new LinkedHashMap<>();
+                        m.put("occurredAt", a.getOccurredAt().toString());
+                        m.put("action", a.getAction());
+                        m.put("entityType", a.getEntityType());
+                        m.put("success", Boolean.TRUE.equals(a.getSuccess()));
+                        return m;
+                    }).toList();
+            result.put("recentAudit", auditLogs);
+        } catch (Exception e) {
+            log.warn("adminAgent: user audit query failed for {}: {}", id, e.getMessage());
+            result.put("recentAudit", List.of());
+        }
+        return result;
+    }
+
+    /**
+     * System health: DB connectivity, Redis ping, uptime.
+     * GET /api/admin/agent/system/health
+     */
+    @GetMapping("/system/health")
+    public Map<String, Object> systemHealth() {
+        auditService.log(AuditAction.ADMIN_AGENT_API_CALL, null, "AdminAgent", null,
+                Map.of("endpoint", "system/health"));
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("checkedAt", Instant.now().toString());
+
+        // DB health
+        boolean dbOk = false;
+        try {
+            jdbcTemplate.queryForObject("SELECT 1", Integer.class);
+            dbOk = true;
+        } catch (Exception e) {
+            log.warn("adminAgent: DB health check failed: {}", e.getMessage());
+        }
+        result.put("database", Map.of("status", dbOk ? "ok" : "error"));
+
+        // Aggregate health
+        result.put("status", dbOk ? "ok" : "degraded");
+        return result;
     }
 
     /**

@@ -90,6 +90,14 @@ public class AuthService {
         }
         User user = userRepository.findByEmail(req.getEmail()).orElseThrow();
         Subscription sub = subscriptionRepository.findByUserId(user.getId()).orElseThrow();
+
+        // Revoke all previous refresh tokens on successful login (security fix)
+        try {
+            refreshTokenRepository.deleteByUserId(user.getId());
+        } catch (Exception e) {
+            log.warn("Could not revoke old refresh tokens for user {}: {}", user.getId(), e.getMessage());
+        }
+
         String accessToken = jwtUtil.generateAccessToken(user);
         String rawRefresh = jwtUtil.generateRefreshToken(user);
         persistRefreshToken(user, rawRefresh, userAgent, ipAddress);

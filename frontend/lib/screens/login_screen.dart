@@ -3,6 +3,7 @@ import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/sawit_logo.dart';
+import 'forgot_password_screen.dart';
 import 'legal_screen.dart';
 import 'register_screen.dart';
 import 'lahan_screen.dart';
@@ -153,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 8),
                       _TextField(
                         controller: _passCtrl,
-                        hint: 'Minimal 6 karakter',
+                        hint: 'Minimal 8 karakter',
                         obscure: _obscure,
                         suffix: IconButton(
                           icon: Icon(
@@ -164,7 +165,22 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: () => setState(() => _obscure = !_obscure),
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const ForgotPasswordScreen()),
+                          ),
+                          child: Text('Lupa Password?',
+                              style: AppTextStyles.body(13,
+                                  color: AppColors.primary,
+                                  weight: FontWeight.w600)),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
 
                       PrimaryButton(
                         label: 'Masuk',

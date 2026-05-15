@@ -6,7 +6,9 @@ import com.sawitku.dto.request.UpdateProfileRequest;
 import com.sawitku.dto.response.ApiResponse;
 import com.sawitku.dto.response.AuthResponse;
 import com.sawitku.entity.User;
+import com.sawitku.model.AuditAction;
 import com.sawitku.service.AiUsageService;
+import com.sawitku.service.AuditService;
 import com.sawitku.service.UserService;
 import com.sawitku.util.ResponseUtil;
 import jakarta.validation.Valid;
@@ -22,6 +24,7 @@ public class UserController {
 
     private final UserService userService;
     private final AiUsageService aiUsageService;
+    private final AuditService auditService;
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<AuthResponse.UserInfo>> getProfile(
@@ -57,6 +60,8 @@ public class UserController {
     @GetMapping("/me/export")
     public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> exportData(
             @AuthenticationPrincipal User user) {
+        auditService.log(AuditAction.USER_DATA_EXPORT, user.getId(), "User", user.getId(),
+                java.util.Map.of("email", user.getEmail()));
         return ResponseUtil.ok(userService.exportUserData(user));
     }
 

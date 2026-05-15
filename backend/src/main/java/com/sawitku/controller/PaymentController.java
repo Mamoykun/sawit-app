@@ -6,6 +6,7 @@ import com.sawitku.dto.response.PaymentResponse;
 import com.sawitku.entity.User;
 import com.sawitku.service.PaymentService;
 import com.sawitku.util.ResponseUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,17 +41,27 @@ public class PaymentController {
     /// Idempotent: same notification can arrive multiple times.
     @PostMapping("/notification")
     public ResponseEntity<Map<String, String>> notification(
-            @RequestBody Map<String, Object> notification) {
-        log.info("Midtrans webhook received: order_id={}, status={}",
-            notification.get("order_id"), notification.get("transaction_status"));
+            @RequestBody Map<String, Object> notification,
+            HttpServletRequest request) {
+        String clientIp = resolveClientIp(request);
+        log.info("Midtrans webhook received from {}: order_id={}, status={}",
+            clientIp, notification.get("order_id"), notification.get("transaction_status"));
         try {
             paymentService.handleNotification(notification);
             return ResponseEntity.ok(Map.of("status", "ok"));
         } catch (Exception e) {
-            log.error("Webhook processing error: {}", e.getMessage(), e);
+            log.error("Webhook processing error from {}: {}", clientIp, e.getMessage(), e);
             // Return 200 anyway — Midtrans will retry on non-200, we don't want infinite loop
             return ResponseEntity.ok(Map.of("status", "error", "message", e.getMessage()));
         }
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
     /// Get payment history of current user.

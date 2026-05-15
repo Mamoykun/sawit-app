@@ -50,6 +50,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   Future<void> _submit() async {
     final subject = _subjectCtrl.text.trim();
     final detail = _detailCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
 
     if (subject.isEmpty) {
       _showSnack('Judul feedback wajib diisi', isError: true);
@@ -59,6 +60,13 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       _showSnack('Detail minimal 10 karakter', isError: true);
       return;
     }
+    if (email.isNotEmpty) {
+      final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+      if (!emailRegex.hasMatch(email)) {
+        _showSnack('Format email tidak valid', isError: true);
+        return;
+      }
+    }
 
     setState(() => _submitting = true);
     try {
@@ -66,7 +74,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         type: _type,
         subject: subject,
         detail: detail,
-        userEmail: _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
+        userEmail: email.isNotEmpty ? email : null,
       );
       if (!mounted) return;
       _showSnack('Terima kasih! Feedback Anda sudah kami terima.');

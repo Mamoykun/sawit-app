@@ -590,7 +590,7 @@ class _Sparkline extends StatelessWidget {
     }).toList();
 
     final maxY = data.fold<double>(0, (m, p) => p.tonAktual > m ? p.tonAktual : m);
-    final minY = data.fold<double>(double.infinity, (m, p) => p.tonAktual < m ? p.tonAktual : m);
+    final minY = (data.fold<double>(double.infinity, (m, p) => p.tonAktual < m ? p.tonAktual : m)).clamp(0.0, double.infinity);
     final yRange = (maxY - minY).clamp(1.0, double.infinity);
 
     return LineChart(

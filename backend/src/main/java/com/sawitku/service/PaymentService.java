@@ -19,6 +19,8 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -50,12 +52,11 @@ public class PaymentService {
     @Value("${midtrans.is-production:false}")
     private boolean isProduction;
 
-    /// Pricing table — single source of truth.
-    /// Free tier (GRATIS) is not purchasable.
-    public static final Map<PaketSubscription, BigDecimal> MONTHLY_PRICE = Map.of(
-        PaketSubscription.PETANI, BigDecimal.valueOf(25_000),
-        PaketSubscription.PRO,    BigDecimal.valueOf(75_000)
-    );
+    @Value("${app.subscription.price-petani:25000}")
+    private int pricePetani;
+
+    @Value("${app.subscription.price-pro:75000}")
+    private int pricePro;
 
     private String snapApiUrl() {
         return isProduction
@@ -70,7 +71,11 @@ public class PaymentService {
         if (req.getTargetPaket() == PaketSubscription.GRATIS) {
             throw new BusinessException("Tidak bisa beli paket GRATIS", "INVALID_PAKET");
         }
-        BigDecimal monthly = MONTHLY_PRICE.get(req.getTargetPaket());
+        BigDecimal monthly = switch (req.getTargetPaket()) {
+            case PETANI -> BigDecimal.valueOf(pricePetani);
+            case PRO -> BigDecimal.valueOf(pricePro);
+            case GRATIS -> null;
+        };
         if (monthly == null) {
             throw new BusinessException("Paket tidak valid", "INVALID_PAKET");
         }
@@ -171,10 +176,58 @@ public class PaymentService {
         }
     }
 
+    /**
+     * Verifies the Midtrans webhook signature to prevent forged payment notifications.
+     *
+     * <p>Midtrans signature formula (from docs):
+     * {@code SHA512(order_id + status_code + gross_amount + serverKey)}
+     *
+     * @param notification the raw webhook body map
+     * @return {@code true} if the computed signature matches the one in the payload
+     */
+    private boolean verifySignature(Map<String, Object> notification) {
+        String orderId      = (String) notification.get("order_id");
+        String statusCode   = (String) notification.get("status_code");
+        String grossAmount  = (String) notification.get("gross_amount");
+        String signatureKey = (String) notification.get("signature_key");
+
+        if (orderId == null || statusCode == null || grossAmount == null || signatureKey == null) {
+            log.warn("Midtrans webhook missing fields required for signature check");
+            return false;
+        }
+        if (serverKey == null || serverKey.isBlank()) {
+            // No server key configured — skip verification in dev, warn loudly
+            log.warn("MIDTRANS_SERVER_KEY not configured — skipping signature verification (dev mode only)");
+            return true;
+        }
+
+        String payload = orderId + statusCode + grossAmount + serverKey;
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-512");
+            byte[] digest = md.digest(payload.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(digest.length * 2);
+            for (byte b : digest) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString().equals(signatureKey);
+        } catch (NoSuchAlgorithmException e) {
+            // SHA-512 is mandated by JDK spec — this cannot happen in practice
+            log.error("SHA-512 algorithm unavailable", e);
+            return false;
+        }
+    }
+
     /// Webhook handler — called by Midtrans on payment status change.
     /// Idempotent: same notification can be received multiple times.
     @Transactional
     public void handleNotification(Map<String, Object> notification) {
+        // --- SECURITY: verify Midtrans signature before any DB writes ---
+        if (!verifySignature(notification)) {
+            log.warn("Midtrans webhook REJECTED — invalid signature for order_id={}",
+                notification.get("order_id"));
+            return; // Return silently so Midtrans does not retry a legitimately bad request
+        }
+
         String orderId = (String) notification.get("order_id");
         String txStatus = (String) notification.get("transaction_status");
         String fraudStatus = (String) notification.get("fraud_status");

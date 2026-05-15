@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Rate-limits endpoints per IP:
- *   - /api/auth/* endpoints: 5 requests per minute
+ *   - /api/auth/* endpoints: 2 requests per minute
  *   - /api/admin/agent/* endpoints: 60 requests per minute
  *
  * Uses in-memory ConcurrentHashMap of Bucket4j buckets — one bucket per (ip, bucketType) key.
@@ -26,7 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private static final int AUTH_MAX_PER_MINUTE = 5;
+    private static final int AUTH_MAX_PER_MINUTE = 2;
     private static final int AGENT_MAX_PER_MINUTE = 60;
     private static final long REFILL_SECONDS = 60L;
 

@@ -100,13 +100,14 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
         final shouldExit = await _confirmExit();
         if (shouldExit && mounted) {
           Navigator.pop(context, PaymentResult.cancelled);
         }
-        return false;
       },
       child: Scaffold(
         appBar: AppBar(

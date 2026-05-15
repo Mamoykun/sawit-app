@@ -41,4 +41,9 @@ public interface PanenRepository extends JpaRepository<Panen, Long> {
     long countByUserId(@Param("userId") Long userId);
 
     long countByCreatedAtAfter(LocalDateTime after);
+
+    @Query("SELECT p FROM Panen p WHERE p.lahan.id IN :lahanIds AND p.id IN (" +
+           "  SELECT MAX(p2.id) FROM Panen p2 WHERE p2.lahan.id IN :lahanIds GROUP BY p2.lahan.id" +
+           ")")
+    List<Panen> findLatestByLahanIds(@Param("lahanIds") List<Long> lahanIds);
 }

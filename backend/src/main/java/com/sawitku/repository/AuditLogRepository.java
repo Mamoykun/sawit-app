@@ -29,4 +29,22 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     long countByActionAndOccurredAtAfter(@Param("action") String action, @Param("since") Instant since);
 
     List<AuditLog> findTop50ByOrderByOccurredAtDesc();
+
+    @Query("SELECT a FROM AuditLog a WHERE " +
+           "(:action IS NULL OR a.action = :action) AND " +
+           "(:from IS NULL OR a.occurredAt >= :from) AND " +
+           "(:to IS NULL OR a.occurredAt <= :to) AND " +
+           "(:success IS NULL OR a.success = :success) " +
+           "ORDER BY a.occurredAt DESC")
+    Page<AuditLog> findFiltered(
+            @Param("action") String action,
+            @Param("from") Instant from,
+            @Param("to") Instant to,
+            @Param("success") Boolean success,
+            Pageable pageable);
+
+    long countBySuccess(boolean success);
+
+    @Query("SELECT COUNT(a) FROM AuditLog a WHERE a.success = :success AND a.occurredAt > :since")
+    long countBySuccessAndOccurredAtAfter(@Param("success") boolean success, @Param("since") Instant since);
 }

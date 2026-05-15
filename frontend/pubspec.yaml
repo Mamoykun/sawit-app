@@ -52,8 +52,31 @@ dev_dependencies:
   json_serializable: ^6.7.1
   flutter_lints: ^3.0.0
   drift_dev: ^2.18.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.0
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png"
+  adaptive_icon_background: "#166534"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"
+  min_sdk_android: 21
+  web:
+    generate: false
+
+flutter_native_splash:
+  color: "#166534"
+  image: assets/icon/icon.png
+  color_dark: "#14532d"
+  image_dark: assets/icon/icon.png
+  android_12:
+    image: assets/icon/icon.png
+    color: "#166534"
+  fullscreen: false
 
 flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/icon/
