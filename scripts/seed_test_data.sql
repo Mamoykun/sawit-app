@@ -36,7 +36,7 @@ SELECT
   NOW()
 FROM users
 WHERE email LIKE '%@sawitku.test'
-ON CONFLICT DO NOTHING;
+  AND id NOT IN (SELECT user_id FROM subscriptions);
 
 -- ③ LAHAN (3 per user = 3.000 records)
 CREATE TEMP TABLE _seed_users AS
