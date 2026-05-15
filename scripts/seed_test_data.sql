@@ -1,17 +1,23 @@
 -- ================================================================
 -- Sawitku — Test Data Seed (~1 juta records)
--- Password semua user test: password
+--
+-- SEBELUM RUN:
+-- 1. Register 1 akun dulu di app (email & password bebas)
+-- 2. Jalankan: SELECT password FROM users WHERE email = 'emailmu' LIMIT 1;
+-- 3. Copy hasilnya, tempel di bawah menggantikan GANTI_DENGAN_HASH_DARI_DB
+--
 -- Jalankan di pgAdmin: Query Tool → buka file ini → Run (F5)
 -- ================================================================
 
 BEGIN;
 
 -- ① USERS (1.000 records)
+-- Ganti GANTI_DENGAN_HASH_DARI_DB dengan hasil query di atas
 INSERT INTO users (name, email, password, phone, created_at, updated_at)
 SELECT
   'Petani Test ' || n,
   'test' || n || '@sawitku.test',
-  '$2a$10$EblZqNptyYvcLm/VwDptlOBMpFNybr3J0U65g.1W1P34bV2etq.8W',
+  'GANTI_DENGAN_HASH_DARI_DB',
   '0812' || LPAD(n::TEXT, 8, '0'),
   NOW() - ((random() * 730)::INT || ' days')::INTERVAL,
   NOW()
