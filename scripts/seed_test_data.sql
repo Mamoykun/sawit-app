@@ -97,7 +97,7 @@ SELECT
 FROM _seed_lahan sl
 CROSS JOIN generate_series(2019, 2024) AS y
 CROSS JOIN generate_series(1, 12) AS m
-AND NOT EXISTS (
+WHERE NOT EXISTS (
   SELECT 1 FROM panen p2
   WHERE p2.lahan_id = sl.id AND p2.tahun = y AND p2.bulan_angka = m
 );
