@@ -16,7 +16,9 @@ SELECT
   NOW() - ((random() * 730)::INT || ' days')::INTERVAL,
   NOW()
 FROM generate_series(1, 1000) AS n
-ON CONFLICT (email) DO NOTHING;
+WHERE NOT EXISTS (
+  SELECT 1 FROM users WHERE email = 'test' || n || '@sawitku.test'
+);
 
 -- ② SUBSCRIPTIONS (1 per user)
 INSERT INTO subscriptions (user_id, paket, status, expired_at, created_at)
@@ -95,7 +97,10 @@ SELECT
 FROM _seed_lahan sl
 CROSS JOIN generate_series(2019, 2024) AS y
 CROSS JOIN generate_series(1, 12) AS m
-ON CONFLICT (lahan_id, tahun, bulan_angka) DO NOTHING;
+AND NOT EXISTS (
+  SELECT 1 FROM panen p2
+  WHERE p2.lahan_id = sl.id AND p2.tahun = y AND p2.bulan_angka = m
+);
 
 -- ⑤ BIAYA (~864.000 records: 4 kategori x 6 tahun x 12 bulan x 3.000 lahan)
 INSERT INTO biaya (
