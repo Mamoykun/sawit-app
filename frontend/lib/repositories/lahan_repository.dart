@@ -22,9 +22,9 @@ class LahanRepository {
     ).get();
 
     if (rows.isEmpty) {
-      // Cold start — fetch from server, KECUALI ada pending delete.
-      final pendingDeletes = await _pendingDeleteIds();
-      if (pendingDeletes.isNotEmpty) return [];
+      // Cold start (login baru / cache kosong) — selalu fetch dari server.
+      // Pending deletes tidak relevan kalau cache kosong karena tidak ada
+      // data lokal yang perlu dijaga. Fetch server adalah sumber kebenaran.
       try {
         final list = await _api.getMyLahan();
         for (final m in list) {
@@ -32,7 +32,7 @@ class LahanRepository {
         }
         return list.where((m) => m.isActive).toList();
       } catch (_) {
-        // Offline + empty cache — return empty list, screen shows empty state.
+        // Offline + empty cache — tampilkan empty state.
         return [];
       }
     }
