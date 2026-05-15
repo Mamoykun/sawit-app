@@ -25,7 +25,7 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
   String? _error;
   late int _selectedYear;
 
-  static const _kMonthAbbr = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+  static const _kMonthAbbr = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
 
   @override
   void initState() {
@@ -348,13 +348,15 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 22,
-              getTitlesWidget: (v, _) {
+              reservedSize: 28,
+              getTitlesWidget: (v, meta) {
                 final idx = v.toInt();
                 if (idx < 0 || idx > 11) return const SizedBox.shrink();
-                return Text(_kMonthAbbr[idx],
-                    style:
-                        AppTextStyles.body(9, color: AppColors.textMuted));
+                return Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(_kMonthAbbr[idx],
+                      style: AppTextStyles.body(8, color: AppColors.textMuted)),
+                );
               },
             ),
           ),
